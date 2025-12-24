@@ -14,16 +14,13 @@ st.markdown("""
         padding: 15px; border-radius: 10px;
         border: 1px solid #2d313a; margin-bottom: 15px;
     }
-    .team-stats { font-size: 0.8em; color: #aaa; text-align: center; }
-    .status-live { color: #00ff00; font-weight: bold; font-size: 0.8em; }
-    .status-final { color: #888; font-size: 0.8em; }
     .score-box { font-size: 1.4em; font-weight: bold; text-align: center; color: white; }
     .team-name { font-size: 1.2em; font-weight: 600; color: #e0e0e0; }
+    .tutorial-box { background-color: #262730; padding: 10px; border-radius: 5px; border-left: 5px solid #4da6ff; margin-top: 10px;}
     </style>
 """, unsafe_allow_html=True)
 
 # --- 1. CEREBRO QUANTITATIVO (POWER RATINGS) ---
-# Net Rating Estimado (Diferencial de pontos por 100 posses) - Ajuste semanalmente!
 POWER_RATINGS = {
     "Celtics": 10.5, "Thunder": 9.0, "Timberwolves": 7.5, "Nuggets": 7.0,
     "Clippers": 6.5, "Knicks": 5.5, "76ers": 5.0, "Bucks": 4.5,
@@ -35,7 +32,6 @@ POWER_RATINGS = {
     "Pistons": -8.0, "Wizards": -9.0
 }
 
-# Impacto de Jogadores (Tier List)
 DB_JOGADORES = {
     "Nikola Jokic": {"impact": 8.5, "team": "Nuggets"},
     "Luka Doncic": {"impact": 7.0, "team": "Mavericks"},
@@ -90,22 +86,27 @@ def carregar_jogos_nba():
         return []
 
 def calcular_linha_justa_base(time_casa, time_visitante):
-    # Formula: (Rating Casa + Vantagem Casa) - Rating Visitante
-    # Vantagem de Casa Padrao = 2.5 pontos
     rating_casa = POWER_RATINGS.get(time_casa, 0)
     rating_visitante = POWER_RATINGS.get(time_visitante, 0)
-
     linha_raw = (rating_casa + 2.5) - rating_visitante
-    # O resultado e quantos pontos o Casa vence. Invertemos para Spread (ex: Vence por 5 = Spread -5)
     return -linha_raw
 
 # --- 3. INTERFACE ---
 st.title("🏀 NBA Pro Quant")
-st.caption("Power Ratings + Steam Chasing + Contexto")
+st.caption("Power Ratings + Steam Chasing + Educacao")
 
-if st.button("🔄 Atualizar Dados", width="stretch"):
-    st.cache_data.clear()
-    st.rerun()
+# --- BARRA LATERAL (GLOSSARIO) ---
+with st.sidebar:
+    st.header("📚 Glossario Rapido")
+    st.info("**Spread (Handicap):** Vantagem de pontos que a casa da ao time mais fraco.")
+    st.markdown("""
+    * **-4.5 (Favorito):** Time precisa ganhar por 5 ou mais.
+    * **+4.5 (Azarao):** Time pode perder por ate 4 pontos (ou ganhar).
+    """)
+    st.info("**Valor (+EV):** Quando nossa probabilidade e maior que a da casa.")
+    if st.button("🔄 Atualizar Dados", width="stretch"):
+        st.cache_data.clear()
+        st.rerun()
 
 jogos = carregar_jogos_nba()
 
@@ -121,17 +122,14 @@ else:
         away_rec = f"{jogo['awayTeam']['wins']}-{jogo['awayTeam']['losses']}"
         status = jogo['gameStatusText'].strip()
 
-        # Calculo da Linha Justa Inicial (Modelo)
         linha_modelo = calcular_linha_justa_base(home_team, away_team)
 
-        # Filtro de Jogadores
         jogadores_no_jogo = []
         for jogador, dados in DB_JOGADORES.items():
             if dados['team'] == home_team or dados['team'] == away_team:
                 jogadores_no_jogo.append(jogador)
         jogadores_no_jogo.sort()
 
-        # UI do Cartao
         with st.container():
             st.markdown(f"""
             <div class="game-card">
@@ -158,22 +156,24 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            # Calculadora Avancada
-            with st.expander(f"📊 Analisar Valor ({away_team} vs {home_team})"):
+            with st.expander(f"📊 Analisar & Aprender ({away_team} vs {home_team})"):
                 c1, c2 = st.columns([1, 1])
 
                 with c1:
-                    linha_mercado = st.number_input("Linha da Casa (Spread)", value=float(round(linha_modelo * 2) / 2), step=0.5, key=f"s_{home_team}", help="Odd da Bet365/Pinnacle")
+                    linha_mercado = st.number_input(
+                        "Linha da Casa (Spread)",
+                        value=float(round(linha_modelo * 2) / 2),
+                        step=0.5,
+                        key=f"s_{home_team}",
+                        help="Valor que esta na Bet365 agora"
+                    )
                 with c2:
                     opcoes = ["Ninguem"] + jogadores_no_jogo if jogadores_no_jogo else ["Sem estrelas"]
                     jogador_out = st.selectbox("Quem esta OUT?", opcoes, key=f"p_{home_team}")
 
-                # Logica de Calculo
                 impacto = 0
                 if jogador_out != "Ninguem" and jogador_out != "Sem estrelas":
                     impacto = DB_JOGADORES[jogador_out]['impact']
-                    # Se o jogador for do time da CASA, o time da casa PIORA (Spread sobe, ex: -5 vira -1)
-                    # Se for VISITANTE, o time da casa MELHORA (Spread desce, ex: -5 vira -9)
                     if DB_JOGADORES[jogador_out]['team'] == home_team:
                         linha_modelo_ajustada = linha_modelo + impacto
                     else:
@@ -181,24 +181,43 @@ else:
                 else:
                     linha_modelo_ajustada = linha_modelo
 
-                # Comparacao
                 diff = linha_modelo_ajustada - linha_mercado
 
                 st.divider()
-                st.caption(f"Modelo Ajustado: {home_team} {linha_modelo_ajustada:+.1f}")
+                st.write(f"Linha Justa (Modelo): **{home_team} {linha_modelo_ajustada:+.1f}**")
 
-                # Matriz de Decisao
-                # Se Modelo diz -7 e Mercado diz -4 -> Valor no Favorito (Home)
-                # Se Modelo diz -2 e Mercado diz -5 -> Valor no Azarao (Away)
-
-                # Diferenca significativa (> 1.5 pontos)
+                # --- LOGICA DO PROFESSOR (EDUCACIONAL) ---
                 if abs(diff) >= 1.5:
-                    st.success("🔥 OPORTUNIDADE DETECTADA")
-                    if diff < 0:  # Modelo (-7) e menor que Mercado (-4) -> Home e muito mais forte
-                        st.write(f"Aposte em: **{home_team} {linha_mercado:+.1f}**")
-                        st.write(f"Edge (Vantagem): {abs(diff):.1f} pontos")
-                    else:  # Modelo (-2) e maior que Mercado (-5) -> Away deveria perder por menos
-                        st.write(f"Aposte em: **{away_team} {linha_mercado*-1:+.1f}**")
-                        st.write(f"Edge (Vantagem): {abs(diff):.1f} pontos")
+                    st.success("🔥 OPORTUNIDADE CLARA ENCONTRADA!")
+
+                    # Definindo quem e o time da aposta
+                    if diff < 0:
+                        # Modelo (-7) < Mercado (-4). Favorito e MUITO favorito.
+                        time_aposta = home_team
+                        spread_aposta = linha_mercado
+                        tipo = "Favorito"
+                        expl = f"O mercado acha que o {home_team} ganha por apenas {abs(linha_mercado):.1f} pontos. Nosso modelo diz que eles ganham por {abs(linha_modelo_ajustada):.1f}. Essa linha esta barata!"
+                    else:
+                        # Modelo (-2) > Mercado (-5). Azarao vai perder por pouco ou ganhar.
+                        time_aposta = away_team
+                        spread_aposta = linha_mercado * -1  # Inverte o sinal para mostrar a odd do visitante
+                        tipo = "Azarao/Underdog"
+                        expl = f"O mercado acha que o {away_team} vai perder feio. Com o desfalque/ajuste, nosso modelo diz que o jogo sera equilibrado. Ganhar {abs(spread_aposta):.1f} pontos de vantagem e um presente."
+
+                    # O BOX EXPLICATIVO
+                    st.markdown(f"""
+                    <div class="tutorial-box">
+                        <h4>🎓 O que fazer agora?</h4>
+                        <ol>
+                            <li>Abra sua casa de apostas (Bet365/Betano).</li>
+                            <li>Procure o jogo <b>{away_team} vs {home_team}</b>.</li>
+                            <li>Encontre o mercado de <b>Handicap (Spread)</b>.</li>
+                            <li>Aposte em: <b>{time_aposta} {spread_aposta:+.1f}</b>.</li>
+                        </ol>
+                        <p><b>Por que?</b> {expl}</p>
+                        <p><b>Edge (Vantagem):</b> {abs(diff):.1f} pontos sobre o mercado.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.info("⚖️ Linhas Justas. Sem valor claro no pre-live.")
+                    st.info("⚖️ **Fique de fora.** A linha da casa de apostas esta correta. Nao ha valor neste jogo agora.")
+                    st.caption(f"Diferenca: apenas {abs(diff):.1f} pontos. Precisamos de pelo menos 1.5 para termos edge.")
