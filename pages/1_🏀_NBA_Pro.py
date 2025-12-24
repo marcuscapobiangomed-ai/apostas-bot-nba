@@ -1,207 +1,215 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-from nba_api.live.nba.endpoints import scoreboard
+import requests
 from nba_api.stats.endpoints import leaguestandings
 
-# --- CONFIGURACAO VISUAL PREMIUM (CSS) ---
+# --- CONFIGURACAO INICIAL ---
+# Removido st.set_page_config pois esta no Home.py
+
+# --- CHAVE DA 'THE ODDS API' ---
+API_KEY = "e6a32983f406a1fbf89fda109149ac15"
+
+# --- CONFIGURACAO VISUAL (CSS) ---
 st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; font-family: 'Segoe UI', sans-serif; }
-
-    /* Cartao do Jogo */
-    .game-card {
-        background: linear-gradient(145deg, #1e2229, #16191f);
-        padding: 20px;
-        border-radius: 12px;
-        border: 1px solid #303642;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-
-    /* Placar e Texto */
-    .score-big { font-size: 2.2em; font-weight: 800; color: white; text-align: center; line-height: 1.1; }
-    .team-name { font-size: 1.0em; font-weight: 600; color: #a0a0a0; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
-    .game-meta { font-size: 0.8em; color: #00ff00; text-align: center; margin-bottom: 10px; font-weight: bold; }
-
-    /* Badge de Rating */
-    .rating-badge {
-        background-color: #333;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 0.8em;
-        color: #ddd;
-        font-weight: bold;
-        border: 1px solid #444;
-    }
-
-    /* Caixas de Aposta */
-    .bet-box { background-color: #1a2e1a; border-left: 4px solid #00cc00; padding: 15px; margin-top: 15px; border-radius: 4px; }
-    .tutorial-box { background-color: #262730; padding: 10px; border-radius: 5px; border-left: 4px solid #4da6ff; margin-top: 10px; font-size: 0.9em;}
-    </style>
+<style>
+.stApp { background-color: #0e1117; font-family: 'Segoe UI', sans-serif; }
+.game-card {
+    background: linear-gradient(145deg, #1e2229, #16191f);
+    padding: 20px; border-radius: 12px;
+    border: 1px solid #303642; margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+.team-name { font-size: 1.1em; font-weight: 600; color: #e0e0e0; text-align: center; }
+.vs { color: #555; font-weight: bold; text-align: center; font-size: 0.9em; margin: 0 10px;}
+.odds-box {
+    background-color: #000; padding: 10px; border-radius: 8px; text-align: center; margin-top: 10px;
+    border: 1px solid #333;
+}
+.val-box {
+    background-color: #1a2e1a; border-left: 4px solid #00ff00; padding: 15px;
+    margin-top: 10px; border-radius: 5px;
+}
+.badge {
+    background-color: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; color: #aaa;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# --- 1. DADOS DE BACKUP E JOGADORES ---
-BACKUP_RATINGS = {
-    "Celtics": 10.0, "Thunder": 8.5, "Timberwolves": 7.0, "Nuggets": 7.0, "Clippers": 6.0, "Knicks": 5.5,
-    "76ers": 5.0, "Bucks": 4.5, "Pelicans": 4.0, "Suns": 4.0, "Cavaliers": 4.0, "Mavericks": 3.5,
-    "Heat": 3.0, "Pacers": 2.5, "Kings": 2.0, "Magic": 2.0, "Warriors": 2.0, "Lakers": 1.5,
-    "Rockets": 1.0, "Hawks": -1.0, "Bulls": -1.5, "Nets": -2.0, "Jazz": -3.0, "Raptors": -3.5,
-    "Grizzlies": -4.0, "Spurs": -5.0, "Hornets": -6.0, "Trail Blazers": -7.0, "Pistons": -8.0, "Wizards": -9.0
-}
-
-DB_JOGADORES = {
-    "Nikola Jokic": {"impact": 8.5, "team": "Nuggets"}, "Luka Doncic": {"impact": 7.0, "team": "Mavericks"},
-    "Giannis Antetokounmpo": {"impact": 6.5, "team": "Bucks"}, "Shai Gilgeous-Alexander": {"impact": 6.5, "team": "Thunder"},
-    "Joel Embiid": {"impact": 6.0, "team": "76ers"}, "Jayson Tatum": {"impact": 5.0, "team": "Celtics"},
-    "Stephen Curry": {"impact": 5.0, "team": "Warriors"}, "LeBron James": {"impact": 4.5, "team": "Lakers"},
-    "Anthony Davis": {"impact": 4.5, "team": "Lakers"}, "Kevin Durant": {"impact": 4.5, "team": "Suns"},
-    "Devin Booker": {"impact": 3.5, "team": "Suns"}, "Anthony Edwards": {"impact": 4.5, "team": "Timberwolves"},
-    "Jalen Brunson": {"impact": 3.5, "team": "Knicks"}, "Ja Morant": {"impact": 3.5, "team": "Grizzlies"},
-    "Tyrese Haliburton": {"impact": 3.0, "team": "Pacers"}, "Donovan Mitchell": {"impact": 3.5, "team": "Cavaliers"},
-    "Victor Wembanyama": {"impact": 4.5, "team": "Spurs"}, "Trae Young": {"impact": 3.0, "team": "Hawks"},
-    "Damian Lillard": {"impact": 3.0, "team": "Bucks"}, "Jimmy Butler": {"impact": 3.0, "team": "Heat"},
-    "Kawhi Leonard": {"impact": 3.0, "team": "Clippers"}, "Zion Williamson": {"impact": 2.5, "team": "Pelicans"},
-    "De'Aaron Fox": {"impact": 2.0, "team": "Kings"}, "LaMelo Ball": {"impact": 2.0, "team": "Hornets"},
-    "Kyrie Irving": {"impact": 2.5, "team": "Mavericks"}, "Bam Adebayo": {"impact": 2.5, "team": "Heat"},
-    "Domantas Sabonis": {"impact": 2.5, "team": "Kings"}, "Paolo Banchero": {"impact": 1.5, "team": "Magic"},
-    "Alperen Sengun": {"impact": 1.5, "team": "Rockets"}, "Derrick White": {"impact": 1.5, "team": "Celtics"},
-    "Jrue Holiday": {"impact": 1.5, "team": "Celtics"}, "Jaylen Brown": {"impact": 1.5, "team": "Celtics"},
-    "Karl-Anthony Towns": {"impact": 1.5, "team": "Knicks"}, "Tyrese Maxey": {"impact": 1.5, "team": "76ers"},
-    "Paul George": {"impact": 2.5, "team": "76ers"}, "Cade Cunningham": {"impact": 1.5, "team": "Pistons"},
-    "Jamal Murray": {"impact": 1.5, "team": "Nuggets"}, "Chet Holmgren": {"impact": 1.5, "team": "Thunder"},
-    "Pascal Siakam": {"impact": 1.5, "team": "Pacers"}, "Lauri Markkanen": {"impact": 1.5, "team": "Jazz"}
-}
-
-# --- 2. FUNCOES AUTOMATICAS ---
+# --- 1. CEREBRO: POWER RATINGS (NBA API) ---
 @st.cache_data(ttl=86400)
-def atualizar_power_ratings_auto():
+def get_nba_ratings():
+    """Baixa Net Rating atualizado da NBA oficial"""
     try:
         standings = leaguestandings.LeagueStandings(season='2024-25')
         df = standings.get_data_frames()[0]
-        novos_ratings = {}
-        for index, row in df.iterrows():
-            team_name = row['TeamName']
-            net_rating = row['PointsPG'] - row['OppPointsPG']
-            novos_ratings[team_name] = round(net_rating, 1)
-        return novos_ratings, "Online (Stats API)"
+        ratings = {}
+        for _, row in df.iterrows():
+            team = row['TeamName']
+            net = row['PointsPG'] - row['OppPointsPG']
+            ratings[team] = round(net, 1)
+        return ratings
     except:
-        return BACKUP_RATINGS, "Offline (Backup)"
+        return {"Celtics": 10.5, "Thunder": 9.0, "Nuggets": 7.0, "Lakers": 1.5,
+                "Cavaliers": 8.0, "Knicks": 5.5, "Bucks": 4.5, "Heat": 3.0}
 
-@st.cache_data(ttl=60)
-def carregar_jogos_nba():
+# --- 2. MERCADO: ODDS REAIS (THE ODDS API) ---
+def get_live_odds(api_key):
+    """Baixa odds da Bet365/Pinnacle via API"""
+    url = f'https://api.the-odds-api.com/v4/sports/basketball_nba/odds'
+    params = {
+        'api_key': api_key,
+        'regions': 'us,eu',
+        'markets': 'spreads',
+        'oddsFormat': 'decimal',
+        'bookmakers': 'bet365,pinnacle'
+    }
+
     try:
-        board = scoreboard.ScoreBoard()
-        return board.get_dict()['scoreboard']['games']
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 401:
+            st.error("Erro de Chave: A API Key parece invalida.")
+            return []
+        elif response.status_code == 429:
+            st.warning("Limite mensal de requisicoes atingido!")
+            return []
+        else:
+            st.warning(f"Erro na API de Odds: {response.status_code}")
+            return []
     except:
         return []
 
-def calcular_kelly(edge):
-    if edge < 1.5: return "Sem Acao"
-    if edge < 2.5: return "0.5 Unidade (Leve)"
-    if edge < 4.0: return "1.0 Unidade (Padrao)"
-    return "1.5 Unidades (Forte)"
-
-# --- 3. BARRA LATERAL EDUCATIVA ---
-with st.sidebar:
-    st.header("Escola de Apostas")
-    st.markdown("### O que e a Badge cinza?")
-    st.info("E o **Net Rating**: O saldo medio de pontos do time na temporada.")
-    st.markdown("### Como ler?")
-    st.markdown("""
-    * **+7.0+:** Elite
-    * **+3.0 a +6.0:** Forte
-    * **+1.0 a +2.9:** Mediano
-    * **-1.0 a -5.0:** Fraco
-    """)
-    if st.button("Atualizar App"):
-        st.cache_data.clear()
-        st.rerun()
+# --- 3. IMPACTO DE LESOES ---
+DB_LESAO = {
+    "Nikola Jokic": 8.5, "Luka Doncic": 7.0, "Giannis Antetokounmpo": 6.5,
+    "SGA": 6.5, "Joel Embiid": 6.0, "Jayson Tatum": 5.0, "Steph Curry": 5.0,
+    "LeBron James": 4.5, "Anthony Davis": 4.5, "Kevin Durant": 4.5,
+    "Ja Morant": 4.0, "Tyrese Haliburton": 3.5, "Donovan Mitchell": 3.5
+}
 
 # --- 4. APP PRINCIPAL ---
-st.title("NBA Auto-Quant v2.0")
+st.title("NBA Quant Trader")
+st.caption("Conectado: NBA Stats (Forca) + The Odds API (Mercado)")
 
-POWER_RATINGS, status_ratings = atualizar_power_ratings_auto()
-st.caption(f"Status do Robo: {status_ratings}")
+# Carregar Ratings
+RATINGS = get_nba_ratings()
 
-jogos = carregar_jogos_nba()
+# Botao de Atualizacao
+if st.button("Escanear Mercado (Live)", type="primary"):
+    st.cache_data.clear()
+    st.rerun()
 
-if not jogos:
-    st.info("Nenhum jogo encontrado agora.")
+# Busca Odds
+odds_data = get_live_odds(API_KEY)
+
+if not odds_data:
+    st.info("Nenhum jogo encontrado agora ou erro na conexao.")
 else:
-    for jogo in jogos:
-        home_team = jogo['homeTeam']['teamName']
-        away_team = jogo['awayTeam']['teamName']
-        home_score = jogo['homeTeam']['score']
-        away_score = jogo['awayTeam']['score']
-        status = jogo['gameStatusText'].strip()
+    st.success(f"{len(odds_data)} jogos encontrados no mercado.")
 
-        # Ratings
-        r_home = POWER_RATINGS.get(home_team, BACKUP_RATINGS.get(home_team, 0.0))
-        r_away = POWER_RATINGS.get(away_team, BACKUP_RATINGS.get(away_team, 0.0))
+    for game in odds_data:
+        home_team = game['home_team']
+        away_team = game['away_team']
+        start_time = pd.to_datetime(game['commence_time']).strftime('%H:%M')
 
-        # Modelo
-        linha_justa = (r_home + 2.5) - r_away
+        # Match de Ratings
+        r_home = 0.0
+        r_away = 0.0
+        for nome_curto, rating in RATINGS.items():
+            if nome_curto in home_team:
+                r_home = rating
+            if nome_curto in away_team:
+                r_away = rating
 
+        # 1. LINHA JUSTA DO MODELO
+        fair_spread = (r_home + 2.5) - r_away
+        fair_line = -fair_spread
+
+        # 2. LINHA DO MERCADO
+        market_line = None
+        bookie_name = "N/A"
+
+        sites = game.get('bookmakers', [])
+        for site in sites:
+            if site['key'] in ['bet365', 'pinnacle']:
+                try:
+                    market_line = site['markets'][0]['outcomes'][0]['point']
+                    name_on_bet = site['markets'][0]['outcomes'][0]['name']
+
+                    if name_on_bet != home_team:
+                        market_line = -market_line
+
+                    bookie_name = site['title']
+                    break
+                except:
+                    pass
+
+        if market_line is None:
+            if sites:
+                try:
+                    market_line = sites[0]['markets'][0]['outcomes'][0]['point']
+                    if sites[0]['markets'][0]['outcomes'][0]['name'] != home_team:
+                        market_line = -market_line
+                    bookie_name = sites[0]['title']
+                except:
+                    market_line = 0.0
+            else:
+                market_line = 0.0
+
+        # --- EXIBICAO VISUAL ---
         with st.container():
-            # HTML DO CARTAO - unsafe_allow_html=True e OBRIGATORIO
-            st.markdown(f"""
-            <div class="game-card">
-                <div class="game-meta">{status}</div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="flex: 1; text-align: center;">
-                        <div class="team-name">{away_team} <span class="rating-badge" title="Net Rating">{r_away:+.1f}</span></div>
-                        <div class="score-big">{away_score}</div>
-                    </div>
-                    <div style="width: 50px; text-align: center; color: #555; font-weight: bold;">@</div>
-                    <div style="flex: 1; text-align: center;">
-                        <div class="team-name">{home_team} <span class="rating-badge" title="Net Rating">{r_home:+.1f}</span></div>
-                        <div class="score-big">{home_score}</div>
-                    </div>
-                </div>
-                <div style="margin-top: 15px; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
-                    <span style="color: #666; font-size: 0.8em;">PREVISAO DO MODELO:</span><br>
-                    <span style="color: #4da6ff; font-weight: bold; font-size: 1.1em;">
-                        {home_team} {-linha_justa:+.1f}
-                    </span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            html_card = f"""<div class="game-card">
+<div style="text-align:center; color:#888; font-size:0.8em; margin-bottom:5px;">Inicio: {start_time}</div>
+<div style="display:flex; justify-content:center; align-items:center;">
+<div style="flex:1; text-align:right;">
+<div class="team-name">{away_team}</div>
+<span class="badge">{r_away:+.1f}</span>
+</div>
+<div class="vs">@</div>
+<div style="flex:1; text-align:left;">
+<div class="team-name">{home_team}</div>
+<span class="badge">{r_home:+.1f}</span>
+</div>
+</div>
+<div class="odds-box">
+<div style="display:flex; justify-content:space-around;">
+<div>
+<small style="color:#888">MEU MODELO (Justo)</small><br>
+<span style="color:#4da6ff; font-weight:bold; font-size:1.2em;">{fair_line:+.1f}</span>
+</div>
+<div>
+<small style="color:#888">REAL ({bookie_name})</small><br>
+<span style="color:#fff; font-weight:bold; font-size:1.2em;">{market_line:+.1f}</span>
+</div>
+</div>
+</div>
+</div>"""
+            st.markdown(html_card, unsafe_allow_html=True)
 
-            with st.expander(f"Simular Aposta ({away_team} vs {home_team})"):
-                c1, c2 = st.columns(2)
+            # --- AREA DE AJUSTE E DECISAO ---
+            with st.expander(f"Simular Lesao em {home_team} vs {away_team}"):
+                c1, c2 = st.columns([2, 1])
                 with c1:
-                    linha_mercado = st.number_input("Linha Bet365 (Casa)", value=float(round(-linha_justa * 2) / 2), step=0.5, key=f"s_{home_team}")
-                with c2:
-                    jogadores_time = [j for j, d in DB_JOGADORES.items() if d['team'] in [home_team, away_team]]
-                    opcoes = ["Ninguem"] + sorted(jogadores_time) if jogadores_time else ["Sem estrelas mapeadas"]
-                    jogador_out = st.selectbox("Quem esta OUT?", opcoes, key=f"p_{home_team}")
+                    jogador = st.selectbox("Quem esta OUT?", ["Ninguem"] + list(DB_LESAO.keys()), key=f"p_{home_team}")
 
-                impacto = 0
-                if jogador_out not in ["Ninguem", "Sem estrelas mapeadas"]:
-                    impacto = DB_JOGADORES[jogador_out]['impact']
-                    linha_final = -linha_justa + impacto if DB_JOGADORES[jogador_out]['team'] == home_team else -linha_justa - impacto
+                if jogador != "Ninguem":
+                    impacto = DB_LESAO[jogador]
+                    st.caption(f"Aplicando penalidade de {impacto} pontos na linha justa.")
+                    fair_line_adj = fair_line + impacto
                 else:
-                    linha_final = -linha_justa
+                    fair_line_adj = fair_line
 
-                diff = linha_final - linha_mercado
-                edge = abs(diff)
+                # CALCULO DE VALOR (EDGE)
+                diff = abs(fair_line_adj - market_line)
 
-                st.write(f"Linha Justa Ajustada: **{home_team} {linha_final:+.1f}**")
+                st.write(f"Linha Justa Ajustada: **{fair_line_adj:+.1f}**")
 
-                if edge >= 1.5:
-                    stake = calcular_kelly(edge)
-                    lado = home_team if diff < 0 else away_team
-                    linha_aposta = linha_mercado if diff < 0 else linha_mercado * -1
-
-                    st.markdown(f"""
-                    <div class="bet-box">
-                        <h3 style="margin:0; color: #00ff00;">OPORTUNIDADE: {lado} {linha_aposta:+.1f}</h3>
-                        <p style="margin:5px 0 0 0; color: #ccc;">Aposte <b>{stake}</b> da sua unidade.</p>
-                    </div>
-                    <div class="tutorial-box">
-                        <b>Motivo:</b> Vantagem matematica de <b>{edge:.1f} pontos</b> sobre a casa.
-                    </div>
-                    """, unsafe_allow_html=True)
+                if diff >= 1.5:
+                    st.markdown(f"""<div class="val-box">
+<b>OPORTUNIDADE (+EV)</b><br>
+Diferenca de <b>{diff:.1f} pontos</b> entre voce e a casa.<br>
+Mercado: {market_line} | Voce: {fair_line_adj:.1f}
+</div>""", unsafe_allow_html=True)
                 else:
-                    st.warning("Mercado eficiente. Sem valor claro.")
+                    st.info("Mercado eficiente. Sem valor claro nesta linha.")
