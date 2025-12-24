@@ -1,30 +1,83 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from nba_api.live.nba.endpoints import scoreboard
 
-# --- CONFIGURACAO VISUAL (CSS) ---
-st.set_page_config(page_title="NBA Pro Quant", page_icon="🏀", layout="centered")
+# --- CONFIGURACAO VISUAL PREMIUM (CSS) ---
+st.set_page_config(page_title="NBA Pro Quant v2", page_icon="🏀", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; }
+    /* Fundo e Fonte */
+    .stApp { background-color: #0e1117; font-family: 'Segoe UI', sans-serif; }
+
+    /* Cartao do Jogo */
     .game-card {
-        background-color: #1c1f26;
-        padding: 15px; border-radius: 10px;
-        border: 1px solid #2d313a; margin-bottom: 15px;
+        background: linear-gradient(145deg, #1e2229, #16191f);
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #303642;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
-    .score-box { font-size: 1.4em; font-weight: bold; text-align: center; color: white; }
-    .team-name { font-size: 1.2em; font-weight: 600; color: #e0e0e0; }
-    .tutorial-box { background-color: #262730; padding: 10px; border-radius: 5px; border-left: 5px solid #4da6ff; margin-top: 10px;}
+
+    /* Placar Gigante */
+    .score-big {
+        font-size: 2.2em;
+        font-weight: 800;
+        color: white;
+        text-align: center;
+        line-height: 1.1;
+    }
+
+    /* Nomes dos Times */
+    .team-name {
+        font-size: 1.0em;
+        font-weight: 600;
+        color: #a0a0a0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+    }
+
+    /* Status do Jogo */
+    .game-meta {
+        font-size: 0.8em;
+        color: #00ff00;
+        text-align: center;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+
+    /* Badges (B2B, Lesao) */
+    .badge-b2b {
+        background-color: #ff4b4b;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.7em;
+        font-weight: bold;
+        margin-left: 5px;
+    }
+
+    /* Caixa de Sugestao (Kelly) */
+    .bet-box {
+        background-color: #1a2e1a;
+        border-left: 4px solid #00cc00;
+        padding: 15px;
+        margin-top: 15px;
+        border-radius: 4px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 1. CEREBRO QUANTITATIVO (POWER RATINGS) ---
+# --- 1. DADOS E LOGICA ---
+
+# Power Ratings (Atualize semanalmente!)
 POWER_RATINGS = {
-    "Celtics": 10.5, "Thunder": 9.0, "Timberwolves": 7.5, "Nuggets": 7.0,
-    "Clippers": 6.5, "Knicks": 5.5, "76ers": 5.0, "Bucks": 4.5,
-    "Pelicans": 4.5, "Suns": 4.0, "Cavaliers": 4.0, "Mavericks": 3.5,
+    "Celtics": 10.0, "Thunder": 8.5, "Timberwolves": 7.0, "Nuggets": 7.0,
+    "Clippers": 6.0, "Knicks": 5.5, "76ers": 5.0, "Bucks": 4.5,
+    "Pelicans": 4.0, "Suns": 4.0, "Cavaliers": 4.0, "Mavericks": 3.5,
     "Heat": 3.0, "Pacers": 2.5, "Kings": 2.0, "Magic": 2.0,
     "Warriors": 2.0, "Lakers": 1.5, "Rockets": 1.0, "Hawks": -1.0,
     "Bulls": -1.5, "Nets": -2.0, "Jazz": -3.0, "Raptors": -3.5,
@@ -32,6 +85,7 @@ POWER_RATINGS = {
     "Pistons": -8.0, "Wizards": -9.0
 }
 
+# Database de Jogadores e Impacto
 DB_JOGADORES = {
     "Nikola Jokic": {"impact": 8.5, "team": "Nuggets"},
     "Luka Doncic": {"impact": 7.0, "team": "Mavericks"},
@@ -75,7 +129,7 @@ DB_JOGADORES = {
     "Lauri Markkanen": {"impact": 1.5, "team": "Jazz"}
 }
 
-# --- 2. FUNCOES ---
+# --- 2. FUNCOES AVANCADAS ---
 @st.cache_data(ttl=60)
 def carregar_jogos_nba():
     try:
@@ -85,139 +139,139 @@ def carregar_jogos_nba():
     except:
         return []
 
-def calcular_linha_justa_base(time_casa, time_visitante):
-    rating_casa = POWER_RATINGS.get(time_casa, 0)
-    rating_visitante = POWER_RATINGS.get(time_visitante, 0)
-    linha_raw = (rating_casa + 2.5) - rating_visitante
-    return -linha_raw
+def calcular_kelly(edge):
+    """
+    Calcula o tamanho da aposta baseado na vantagem (Kelly Criterion Simplificado).
+    Edge = Diferenca entre nossa linha e a do mercado.
+    """
+    if edge < 1.5:
+        return "Sem Acao (Margem pequena)"
+    if edge < 2.5:
+        return "0.5 Unidade (Aposta Pequena)"
+    if edge < 4.0:
+        return "1.0 Unidade (Aposta Padrao)"
+    return "1.5 Unidades (Aposta Forte 🔥)"
+
+def detectar_b2b(team_name):
+    # Simulacao: Em um app real, verificaria a data do ultimo jogo.
+    # Aqui usamos uma lista manual ou retorna False.
+    times_b2b = []
+    return team_name in times_b2b
 
 # --- 3. INTERFACE ---
-st.title("🏀 NBA Pro Quant")
-st.caption("Power Ratings + Steam Chasing + Educacao")
+st.title("🏀 NBA Pro Quant v2.0")
+st.caption("Power Ratings • Steam Chasing • Kelly Criterion")
 
-# --- BARRA LATERAL (GLOSSARIO) ---
-with st.sidebar:
-    st.header("📚 Glossario Rapido")
-    st.info("**Spread (Handicap):** Vantagem de pontos que a casa da ao time mais fraco.")
-    st.markdown("""
-    * **-4.5 (Favorito):** Time precisa ganhar por 5 ou mais.
-    * **+4.5 (Azarao):** Time pode perder por ate 4 pontos (ou ganhar).
-    """)
-    st.info("**Valor (+EV):** Quando nossa probabilidade e maior que a da casa.")
-    if st.button("🔄 Atualizar Dados", width="stretch"):
-        st.cache_data.clear()
-        st.rerun()
+if st.button("🔄 Atualizar Odds & Placares", width="stretch"):
+    st.cache_data.clear()
+    st.rerun()
 
 jogos = carregar_jogos_nba()
 
 if not jogos:
-    st.warning("Nenhum jogo encontrado.")
+    st.info("Nenhum jogo ao vivo ou agendado para agora.")
 else:
     for jogo in jogos:
         home_team = jogo['homeTeam']['teamName']
         away_team = jogo['awayTeam']['teamName']
         home_score = jogo['homeTeam']['score']
         away_score = jogo['awayTeam']['score']
-        home_rec = f"{jogo['homeTeam']['wins']}-{jogo['homeTeam']['losses']}"
-        away_rec = f"{jogo['awayTeam']['wins']}-{jogo['awayTeam']['losses']}"
         status = jogo['gameStatusText'].strip()
 
-        linha_modelo = calcular_linha_justa_base(home_team, away_team)
+        # Logica de Fadiga (Penalidade de B2B)
+        penalty_home = -1.5 if detectar_b2b(home_team) else 0
+        penalty_away = -1.5 if detectar_b2b(away_team) else 0
 
-        jogadores_no_jogo = []
-        for jogador, dados in DB_JOGADORES.items():
-            if dados['team'] == home_team or dados['team'] == away_team:
-                jogadores_no_jogo.append(jogador)
-        jogadores_no_jogo.sort()
+        # Calculo Linha Base
+        rating_casa = POWER_RATINGS.get(home_team, 0) + penalty_home
+        rating_visitante = POWER_RATINGS.get(away_team, 0) + penalty_away
+        # HFA (Home Field Advantage) = +2.5
+        linha_modelo_raw = (rating_casa + 2.5) - rating_visitante
 
+        # UI: Cartao do Jogo
         with st.container():
             st.markdown(f"""
             <div class="game-card">
-                <div style="display: flex; justify-content: space-between; color: #888; font-size: 0.8em; margin-bottom: 5px;">
-                    <span>{away_rec}</span>
-                    <span>{status}</span>
-                    <span>{home_rec}</span>
-                </div>
+                <div class="game-meta">{status}</div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="text-align: center; width: 40%;">
+                    <div style="flex: 1; text-align: center;">
                         <div class="team-name">{away_team}</div>
-                        <div class="score-box">{away_score}</div>
+                        <div class="score-big">{away_score}</div>
                     </div>
-                    <div style="font-weight: bold; color: #555;">@</div>
-                    <div style="text-align: center; width: 40%;">
+
+                    <div style="width: 50px; text-align: center; color: #555; font-weight: bold; font-size: 1.2em;">@</div>
+
+                    <div style="flex: 1; text-align: center;">
                         <div class="team-name">{home_team}</div>
-                        <div class="score-box">{home_score}</div>
+                        <div class="score-big">{home_score}</div>
                     </div>
                 </div>
-                <div style="text-align: center; margin-top: 10px; padding: 5px; background-color: #262a33; border-radius: 5px;">
-                    <span style="color: #aaa; font-size: 0.9em;">Linha Justa (Modelo): </span>
-                    <span style="color: #4da6ff; font-weight: bold;">{home_team} {linha_modelo:+.1f}</span>
+
+                <div style="margin-top: 15px; text-align: center; border-top: 1px solid #333; padding-top: 10px;">
+                    <span style="color: #666; font-size: 0.8em;">POWER RATING DIZ:</span><br>
+                    <span style="color: #4da6ff; font-weight: bold; font-size: 1.1em;">
+                        {home_team} {-linha_modelo_raw:+.1f}
+                    </span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            with st.expander(f"📊 Analisar & Aprender ({away_team} vs {home_team})"):
-                c1, c2 = st.columns([1, 1])
+            # Expander de Analise
+            with st.expander(f"⚡ Analisar Valor & Aposta ({away_team} vs {home_team})"):
 
+                # Inputs
+                c1, c2 = st.columns(2)
                 with c1:
                     linha_mercado = st.number_input(
-                        "Linha da Casa (Spread)",
-                        value=float(round(linha_modelo * 2) / 2),
+                        "Spread da Casa (Bet365)",
+                        value=float(round(-linha_modelo_raw * 2) / 2),
                         step=0.5,
-                        key=f"s_{home_team}",
-                        help="Valor que esta na Bet365 agora"
+                        key=f"s_{home_team}"
                     )
                 with c2:
-                    opcoes = ["Ninguem"] + jogadores_no_jogo if jogadores_no_jogo else ["Sem estrelas"]
+                    # Filtro de Jogadores
+                    jogadores_no_jogo = [j for j, d in DB_JOGADORES.items() if d['team'] in [home_team, away_team]]
+                    opcoes = ["Ninguem"] + sorted(jogadores_no_jogo) if jogadores_no_jogo else ["Sem estrelas"]
                     jogador_out = st.selectbox("Quem esta OUT?", opcoes, key=f"p_{home_team}")
 
+                # Calculo Final
                 impacto = 0
-                if jogador_out != "Ninguem" and jogador_out != "Sem estrelas":
+                if jogador_out not in ["Ninguem", "Sem estrelas"]:
                     impacto = DB_JOGADORES[jogador_out]['impact']
+                    # Se jogador e do HOME, Home piora (Linha sobe, ex: -5 -> -1)
                     if DB_JOGADORES[jogador_out]['team'] == home_team:
-                        linha_modelo_ajustada = linha_modelo + impacto
+                        linha_modelo_final = -linha_modelo_raw + impacto
                     else:
-                        linha_modelo_ajustada = linha_modelo - impacto
+                        linha_modelo_final = -linha_modelo_raw - impacto
                 else:
-                    linha_modelo_ajustada = linha_modelo
+                    linha_modelo_final = -linha_modelo_raw
 
-                diff = linha_modelo_ajustada - linha_mercado
+                # Veredito
+                diff = linha_modelo_final - linha_mercado
+                edge = abs(diff)
 
                 st.divider()
-                st.write(f"Linha Justa (Modelo): **{home_team} {linha_modelo_ajustada:+.1f}**")
+                st.write(f"Linha Ajustada (Modelo): **{home_team} {linha_modelo_final:+.1f}**")
 
-                # --- LOGICA DO PROFESSOR (EDUCACIONAL) ---
-                if abs(diff) >= 1.5:
-                    st.success("🔥 OPORTUNIDADE CLARA ENCONTRADA!")
+                if edge >= 1.5:
+                    sugestao_kelly = calcular_kelly(edge)
 
-                    # Definindo quem e o time da aposta
-                    if diff < 0:
-                        # Modelo (-7) < Mercado (-4). Favorito e MUITO favorito.
-                        time_aposta = home_team
-                        spread_aposta = linha_mercado
-                        tipo = "Favorito"
-                        expl = f"O mercado acha que o {home_team} ganha por apenas {abs(linha_mercado):.1f} pontos. Nosso modelo diz que eles ganham por {abs(linha_modelo_ajustada):.1f}. Essa linha esta barata!"
-                    else:
-                        # Modelo (-2) > Mercado (-5). Azarao vai perder por pouco ou ganhar.
-                        time_aposta = away_team
-                        spread_aposta = linha_mercado * -1  # Inverte o sinal para mostrar a odd do visitante
-                        tipo = "Azarao/Underdog"
-                        expl = f"O mercado acha que o {away_team} vai perder feio. Com o desfalque/ajuste, nosso modelo diz que o jogo sera equilibrado. Ganhar {abs(spread_aposta):.1f} pontos de vantagem e um presente."
+                    # Decidir o lado
+                    if diff < 0:  # Modelo (-7) < Mercado (-4) -> Home Stronger
+                        lado = f"{home_team} {linha_mercado:+.1f}"
+                    else:  # Modelo (-2) > Mercado (-5) -> Away Stronger
+                        lado = f"{away_team} {linha_mercado*-1:+.1f}"
 
-                    # O BOX EXPLICATIVO
                     st.markdown(f"""
-                    <div class="tutorial-box">
-                        <h4>🎓 O que fazer agora?</h4>
-                        <ol>
-                            <li>Abra sua casa de apostas (Bet365/Betano).</li>
-                            <li>Procure o jogo <b>{away_team} vs {home_team}</b>.</li>
-                            <li>Encontre o mercado de <b>Handicap (Spread)</b>.</li>
-                            <li>Aposte em: <b>{time_aposta} {spread_aposta:+.1f}</b>.</li>
-                        </ol>
-                        <p><b>Por que?</b> {expl}</p>
-                        <p><b>Edge (Vantagem):</b> {abs(diff):.1f} pontos sobre o mercado.</p>
+                    <div class="bet-box">
+                        <h3 style="margin:0; color: #00ff00;">💰 APOSTA INDICADA</h3>
+                        <p style="font-size: 1.2em; margin: 10px 0;">Pick: <b>{lado}</b></p>
+                        <p style="margin:0; font-size: 0.9em; color: #ccc;">
+                            Edge: {edge:.1f} pts<br>
+                            Stake: <b>{sugestao_kelly}</b>
+                        </p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.info("⚖️ **Fique de fora.** A linha da casa de apostas esta correta. Nao ha valor neste jogo agora.")
-                    st.caption(f"Diferenca: apenas {abs(diff):.1f} pontos. Precisamos de pelo menos 1.5 para termos edge.")
+                    st.warning("⚖️ Sem valor claro. Linha justa.")
