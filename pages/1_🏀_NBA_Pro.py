@@ -165,14 +165,31 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
-            # 3. Lesao (Input)
+            # 3. Lesao (Input) - INTELIGENTE
             with c3:
-                player_out = st.selectbox("Lesao?", ["-"] + list(DB_LESAO.keys()), key=f"les_{home}", label_visibility="collapsed")
+                col_input, col_check = st.columns([3, 1])
 
-            # Calculo Logico
+                with col_input:
+                    player_out = st.selectbox(
+                        "Lesao?",
+                        ["-"] + list(DB_LESAO.keys()),
+                        key=f"les_{home}",
+                        label_visibility="collapsed"
+                    )
+
+                with col_check:
+                    is_rival = st.checkbox("Rival?", key=f"chk_{home}", help="Marque se a lesao for no time Visitante")
+
+            # Calculo Dinamico Corrigido
             adj_fair = fair_line
             if player_out != "-":
-                adj_fair += DB_LESAO[player_out]
+                impacto = DB_LESAO[player_out]
+                if is_rival:
+                    # Se lesao e no Rival, meu time melhora (Linha desce)
+                    adj_fair -= impacto
+                else:
+                    # Se lesao e no meu time (Casa), meu time piora (Linha sobe)
+                    adj_fair += impacto
 
             diff = adj_fair - market_line
             edge = abs(diff)
