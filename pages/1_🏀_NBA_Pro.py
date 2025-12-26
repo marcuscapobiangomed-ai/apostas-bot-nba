@@ -185,6 +185,7 @@ else:
                 line_pick = -market_line
                 side_color = "#ffcc00"
 
+            # --- COLUNA 2: NUMEROS COM LEGENDAS EXPLICATIVAS ---
             with c2:
                 cor_modelo = "#ffeb3b" if player_out != "-" else "#4da6ff"
                 st.markdown(f"""
@@ -192,11 +193,13 @@ else:
 <div>
 <div class="odds-label">MODELO</div>
 <div class="odds-num" style="color: {cor_modelo};">{adj_fair:+.1f}</div>
+<div style="font-size: 0.65em; color: #666; margin-top: -3px;">Linha Justa</div>
 </div>
 <div style="border-right: 1px solid #333; margin: 0 5px;"></div>
 <div>
 <div class="odds-label">{bookie_name.upper()}</div>
 <div class="odds-num odds-real">{market_line:+.1f}</div>
+<div style="font-size: 0.65em; color: #666; margin-top: -3px;">Handicap</div>
 </div>
 </div>
 """, unsafe_allow_html=True)
