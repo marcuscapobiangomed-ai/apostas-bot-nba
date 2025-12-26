@@ -12,66 +12,85 @@ from nba_api.stats.endpoints import leaguestandings
 # --- SUA CHAVE ---
 API_KEY = "e6a32983f406a1fbf89fda109149ac15"
 
-# --- CSS MODERNO & ANIMACOES ---
+# --- CSS MODERNO & CLEAN ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e1117; font-family: 'Roboto', sans-serif; }
 
-    /* Animacao de Piscar para o LIVE */
+    /* Animacao de Piscar */
     @keyframes blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.4; }
-        100% { opacity: 1; }
+        0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; }
     }
     .live-dot {
-        display: inline-block;
-        width: 10px; height: 10px;
-        background-color: #ff0000;
-        border-radius: 50%;
-        margin-right: 8px;
-        animation: blink 1.5s infinite;
-        box-shadow: 0 0 5px #ff0000;
-    }
-    .live-tag {
-        color: #ff4b4b; font-weight: bold; font-size: 0.8em; letter-spacing: 1px;
+        display: inline-block; width: 8px; height: 8px;
+        background-color: #ff0000; border-radius: 50%;
+        margin-right: 6px; animation: blink 1.5s infinite;
+        box-shadow: 0 0 6px #ff0000; vertical-align: middle;
     }
 
-    /* Cards e Layout */
+    /* Tags de Status */
+    .status-live {
+        background-color: #2d1b1b; color: #ff4b4b;
+        padding: 2px 8px; border-radius: 4px;
+        font-size: 0.75em; font-weight: bold; border: 1px solid #5e2a2a;
+    }
+    .status-clock {
+        color: #ffcc00; font-weight: bold; margin-left: 8px; font-family: monospace; font-size: 0.9em;
+    }
+    .status-q {
+        color: #aaa; margin-left: 8px; font-size: 0.8em; font-weight: bold;
+    }
+
+    /* Cards */
     .trade-strip {
         background-color: #1c1e26; border-radius: 8px; padding: 15px; margin-bottom: 12px;
         border-left: 4px solid #444; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
-    .strip-live { border-left: 4px solid #ff4b4b; background-color: #261c1c; }
+    .strip-live { border-left: 4px solid #ff4b4b; background-color: #1f1a1a; }
     .strip-value { border-left: 4px solid #00ff00; background-color: #1f291f; }
 
-    .time-text { color: #888; font-size: 0.8em; font-weight: bold; display: block; margin-bottom: 4px;}
     .team-name { font-size: 1.1em; font-weight: 600; color: #eee; }
-    .score-live { font-size: 1.4em; font-weight: bold; color: #fff; padding: 0 10px; }
-    .game-clock { font-size: 0.8em; color: #ff4b4b; font-weight: bold; }
+    .score-live { font-size: 1.4em; font-weight: bold; color: #fff; text-align: right; }
+    .time-text { color: #888; font-size: 0.8em; font-weight: bold; }
 
-    /* Noticias e Badges */
+    /* Noticias */
     .news-card { background-color: #262730; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 3px solid #4da6ff; font-size: 0.9em; }
     .news-alert { border-left: 3px solid #ff4b4b; background-color: #2d1b1b; }
-    .news-title { color: #e0e0e0; font-weight: 500; }
+    .news-time { font-size: 0.75em; color: #aaa; margin-bottom: 4px; font-weight: bold; }
 
-    .stake-badge { background-color: #00ff00; color: #000; font-weight: bold; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
-    .stake-normal { background-color: #ffff00; color: black; }
-    .stake-high { background-color: #ff00ff; color: white; }
+    /* Badges */
+    .stake-badge { background-color: #00ff00; color: #000; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; }
+    .stake-normal { background-color: #ffff00; color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;}
 
     div[data-baseweb="select"] > div { background-color: #262730; border-color: #444; color: white; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- BARRA LATERAL (GESTAO) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("Gestao de Banca")
-    banca_total = st.number_input("Banca Total (R$)", value=1000.0, step=100.0, format="%.2f")
-    pct_unidade = st.slider("Valor da Unidade (%)", 0.5, 5.0, 1.0, step=0.5)
+    st.header("Gestao")
+    banca_total = st.number_input("Banca (R$)", value=1000.0, step=100.0, format="%.2f")
+    pct_unidade = st.slider("Unidade (%)", 0.5, 5.0, 1.0, step=0.5)
     valor_unidade = banca_total * (pct_unidade / 100)
-    st.markdown(f"""<div style="text-align:center; background-color: #1a1c24; padding: 10px; border-radius: 8px;"><small style="color:#888">1 UNIDADE</small><br><span style="font-size: 1.5em; color: #4da6ff; font-weight: bold;">R$ {valor_unidade:.2f}</span></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div style="text-align:center; background-color: #1a1c24; padding: 10px; border-radius: 8px; margin-top:10px;"><small style="color:#888">1 UNIDADE</small><br><span style="font-size: 1.5em; color: #4da6ff; font-weight: bold;">R$ {valor_unidade:.2f}</span></div>""", unsafe_allow_html=True)
 
-# --- 1. MOTOR DE DADOS AO VIVO (NBA CDN) ---
-@st.cache_data(ttl=30)
+# --- FUNCAO DE LIMPEZA DO RELOGIO ---
+def clean_nba_clock(raw_clock):
+    # Transforma "PT07M03.00S" em "07:03"
+    if not raw_clock: return ""
+    try:
+        clean = raw_clock.replace("PT", "").replace("S", "")
+        if "M" in clean:
+            parts = clean.split("M")
+            mins = parts[0]
+            secs = parts[1].split(".")[0]
+            return f"{mins}:{secs}"
+        return clean
+    except:
+        return raw_clock
+
+# --- 1. DADOS AO VIVO ---
+@st.cache_data(ttl=20)
 def get_nba_live_scores():
     try:
         url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
@@ -80,66 +99,53 @@ def get_nba_live_scores():
 
         live_data = {}
         for g in games:
-            status_code = g['gameStatus']
-            is_live = status_code == 2
-            is_final = status_code == 3
+            status = g['gameStatus']
+            home = g['homeTeam']['teamName']
 
-            home_team = g['homeTeam']['teamName']
-            away_team = g['awayTeam']['teamName']
+            relogio_formatado = clean_nba_clock(g['gameClock'])
 
             info = {
-                "live": is_live,
-                "final": is_final,
+                "live": status == 2,
                 "period": g['period'],
-                "clock": g['gameClock'],
+                "clock": relogio_formatado,
                 "score_home": g['homeTeam']['score'],
                 "score_away": g['awayTeam']['score']
             }
-            live_data[home_team] = info
-            live_data[away_team] = info
-            live_data[g['homeTeam']['teamCity'] + " " + home_team] = info
+            live_data[home] = info
+            live_data[g['awayTeam']['teamName']] = info
 
         return live_data
-    except:
-        return {}
+    except: return {}
 
-# --- 2. MOTOR DE NOTICIAS (TRADUZIDO) ---
+# --- 2. NOTICIAS TRADUZIDAS ---
 @st.cache_data(ttl=600)
-def get_nba_news_translated():
+def get_news():
     try:
         feed = feedparser.parse("https://www.espn.com/espn/rss/nba/news")
         noticias = []
-        keywords = ["injury", "out", "surgery", "suspended", "trade", "doubtful"]
+        keywords = ["injury", "out", "surgery", "suspended", "trade"]
         translator = GoogleTranslator(source='auto', target='pt')
-
         for entry in feed.entries[:4]:
-            titulo_en = entry.title
-            alerta = any(w in titulo_en.lower() for w in keywords)
-            try: titulo_pt = translator.translate(titulo_en)
-            except: titulo_pt = titulo_en
-            titulo_pt = titulo_pt.replace("Fontes:", "").strip()
+            alerta = any(w in entry.title.lower() for w in keywords)
+            try: tit = translator.translate(entry.title).replace("Fontes:", "").strip()
+            except: tit = entry.title
             try: hora = datetime(*entry.published_parsed[:6]).strftime("%H:%M")
-            except: hora = "Hoje"
-            noticias.append({"titulo": titulo_pt, "hora": hora, "alerta": alerta})
+            except: hora = ""
+            noticias.append({"titulo": tit, "hora": hora, "alerta": alerta})
         return noticias
     except: return []
 
-# --- 3. RATINGS & ODDS ---
+# --- 3. DADOS ESTATICOS ---
 @st.cache_data(ttl=86400)
-def get_nba_ratings():
+def get_ratings():
     try:
         standings = leaguestandings.LeagueStandings(season='2024-25')
         df = standings.get_data_frames()[0]
-        ratings = {}
-        for _, row in df.iterrows():
-            team = row['TeamName']
-            ratings[team] = round(row['PointsPG'] - row['OppPointsPG'], 1)
-        return ratings
+        return {row['TeamName']: round(row['PointsPG'] - row['OppPointsPG'], 1) for _, row in df.iterrows()}
     except: return {"Celtics": 10.5, "Thunder": 9.0, "Nuggets": 7.0, "Lakers": 1.5, "Knicks": 4.0}
 
 def get_odds(api_key):
-    try:
-        return requests.get(f'https://api.the-odds-api.com/v4/sports/basketball_nba/odds', params={'api_key': api_key, 'regions': 'us,eu', 'markets': 'spreads', 'oddsFormat': 'decimal', 'bookmakers': 'pinnacle,bet365'}).json()
+    try: return requests.get(f'https://api.the-odds-api.com/v4/sports/basketball_nba/odds', params={'api_key': api_key, 'regions': 'us,eu', 'markets': 'spreads', 'oddsFormat': 'decimal', 'bookmakers': 'pinnacle,bet365'}).json()
     except: return []
 
 DB_LESAO_FULL = {
@@ -149,68 +155,66 @@ DB_LESAO_FULL = {
     "Mitchell": [4.0, "Cavaliers"], "Brunson": [3.5, "Knicks"], "Wembanyama": [4.5, "Spurs"]
 }
 
-# --- APP PRINCIPAL ---
+# --- INTERFACE ---
 c1, c2 = st.columns([5, 1])
-c1.title("NBA Terminal Pro v5.0 (LIVE)")
-if c2.button("SCAN LIVE", type="primary"):
+c1.title("NBA Terminal Pro v5.1")
+if c2.button("LIVE SCAN", type="primary"):
     st.cache_data.clear()
     st.rerun()
 
 # Noticias
 with st.expander("BREAKING NEWS", expanded=True):
-    news = get_nba_news_translated()
+    news = get_news()
     if news:
         cols = st.columns(4)
         for i, n in enumerate(news):
             css = "news-alert" if n['alerta'] else "news-card"
-            with cols[i]: st.markdown(f"""<div class="{css} news-card"><div style="font-size:0.7em;color:#aaa">{n['hora']}</div>{n['titulo']}</div>""", unsafe_allow_html=True)
+            with cols[i]: st.markdown(f"""<div class="{css} news-card"><div class="news-time">{n['hora']}</div>{n['titulo']}</div>""", unsafe_allow_html=True)
 
 st.divider()
 
-# Logica Principal
-RATINGS = get_nba_ratings()
+RATINGS = get_ratings()
 ODDS = get_odds(API_KEY)
 LIVE_SCORES = get_nba_live_scores()
 
 if not ODDS or isinstance(ODDS, dict):
-    st.info("Mercado fechado ou sem creditos.")
+    st.info("Mercado fechado.")
 else:
-    # Cabecalho
-    st.markdown("""<div style="display: flex; color: #666; font-size: 0.8em; padding: 0 15px; margin-bottom: 5px; font-weight: bold;"><div style="flex: 3;">JOGO & PLACAR</div><div style="flex: 2; text-align: center;">LINHAS (LIVE vs MODELO)</div><div style="flex: 2; padding-left: 10px;">FILTRO</div><div style="flex: 1.5; text-align: right;">DECISAO (+EV)</div></div>""", unsafe_allow_html=True)
+    # Header da Tabela
+    st.markdown("""
+    <div style="display: flex; color: #666; font-size: 0.8em; padding: 0 15px; margin-bottom: 5px; font-weight: bold;">
+        <div style="flex: 3;">JOGO & STATUS</div>
+        <div style="flex: 2; text-align: center;">LINHAS</div>
+        <div style="flex: 2; padding-left: 10px;">FILTRO</div>
+        <div style="flex: 1.5; text-align: right;">DECISAO</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     for game in ODDS:
         home = game['home_team']
         away = game['away_team']
 
-        # 1. Busca Placar Ao Vivo (Match fuzzy simples)
-        game_live_info = None
+        # Live Info
+        live_info = None
         for k, v in LIVE_SCORES.items():
-            if k in home or home in k:
-                game_live_info = v
-                break
+            if k in home or home in k: live_info = v; break
 
-        is_live = game_live_info['live'] if game_live_info else False
-        is_final = game_live_info['final'] if game_live_info else False
+        is_live = live_info['live'] if live_info else False
 
-        # 2. Ratings & Modelo
+        # Ratings & Lines
         r_home = RATINGS.get(home, RATINGS.get(home.split()[-1], 0))
         r_away = RATINGS.get(away, RATINGS.get(away.split()[-1], 0))
-        fair_line_pre = -((r_home + 2.5) - r_away)
+        fair_line = -((r_home + 2.5) - r_away)
 
-        # 3. Market Odds
         market_line = 0.0
         for s in game.get('bookmakers', []):
             if s['key'] in ['pinnacle', 'bet365']:
                 p = s['markets'][0]['outcomes'][0]['point']
                 if s['markets'][0]['outcomes'][0]['name'] != home: p = -p
-                market_line = p
-                break
+                market_line = p; break
         if market_line == 0.0: continue
 
-        # 4. Ajuste Lesao
-        jogadores = [j for j, d in DB_LESAO_FULL.items() if d[1] in home or d[1] in away]
-
-        # CONTAINER
+        # Container
         css_strip = "strip-live" if is_live else "trade-strip"
         with st.container():
             c_g, c_l, c_f, c_d = st.columns([3, 2.2, 2.2, 1.6], gap="small", vertical_alignment="center")
@@ -219,12 +223,16 @@ else:
                 if is_live:
                     st.markdown(f"""
                     <div style="line-height:1.2;">
-                        <span class="live-tag"><span class="live-dot"></span>AO VIVO - Q{game_live_info['period']} {game_live_info['clock']}</span><br>
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
-                            <span class="team-name">{away}</span> <span class="score-live">{game_live_info['score_away']}</span>
+                        <div style="margin-bottom:6px;">
+                            <span class="status-live"><span class="live-dot"></span>AO VIVO</span>
+                            <span class="status-q">Q{live_info['period']}</span>
+                            <span class="status-clock">{live_info['clock']}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:2px; margin-bottom:2px;">
+                            <span class="team-name">{away}</span> <span class="score-live">{live_info['score_away']}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="team-name">{home}</span> <span class="score-live">{game_live_info['score_home']}</span>
+                            <span class="team-name">{home}</span> <span class="score-live">{live_info['score_home']}</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -233,36 +241,29 @@ else:
                     st.markdown(f"""<div style="line-height:1.5;"><span class="time-text">{time_start}</span><div>{away} <span style="font-size:0.8em;color:#aaa">({r_away:+.1f})</span></div><div style="color:#444">@</div><div>{home} <span style="font-size:0.8em;color:#aaa">({r_home:+.1f})</span></div></div>""", unsafe_allow_html=True)
 
             with c_f:
+                jogadores = [j for j, d in DB_LESAO_FULL.items() if d[1] in home or d[1] in away]
                 p_out = st.selectbox("OUT?", ["-"]+jogadores, key=f"ls_{home}", label_visibility="collapsed")
+                if p_out != "-":
+                    imp, tm = DB_LESAO_FULL[p_out]
+                    if tm in home: fair_line += imp
+                    else: fair_line -= imp
 
-            # Recalculo
-            adj_fair = fair_line_pre
-            if p_out != "-":
-                imp, tm = DB_LESAO_FULL[p_out]
-                if tm in home: adj_fair += imp
-                else: adj_fair -= imp
-
-            # DECISAO
-            diff = abs(adj_fair - market_line)
+            diff = abs(fair_line - market_line)
             has_value = diff >= 1.5
 
-            # Logica Especial LIVE
-            note_live = ""
-            if is_live:
-                note_live = "<br><span style='color:#ff9900;font-size:0.7em'>Mercado Live</span>"
-
             with c_l:
-                st.markdown(f"""<div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:0.7em;color:#aaa">MODELO (PRE)</div><div style="font-weight:bold;color:#4da6ff">{adj_fair:+.1f}</div></div><div style="border-right:1px solid #444"></div><div><div style="font-size:0.7em;color:#aaa">MARKET</div><div style="font-weight:bold;color:#fff">{market_line:+.1f}</div></div></div>""", unsafe_allow_html=True)
+                st.markdown(f"""<div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:0.7em;color:#aaa">MODELO</div><div style="font-weight:bold;color:#4da6ff">{fair_line:+.1f}</div></div><div style="border-right:1px solid #444"></div><div><div style="font-size:0.7em;color:#aaa">MARKET</div><div style="font-weight:bold;color:#fff">{market_line:+.1f}</div></div></div>""", unsafe_allow_html=True)
 
             with c_d:
                 if has_value:
-                    color = "#00ff00" if diff < 5 else "#ff00ff"
-                    pick = home if adj_fair < market_line else away
+                    pick = home if fair_line < market_line else away
                     line = market_line if pick == home else -market_line
+                    units = 1.5 if diff > 3 else 0.75
+                    val = valor_unidade * units
+                    css_badge = "stake-badge" if diff > 3 else "stake-normal"
 
-                    val_bet = valor_unidade * (1.5 if diff > 3 else 0.75)
-                    st.markdown(f"""<div style="text-align:right;"><span style="background:{color};color:black;font-weight:bold;padding:2px 5px;border-radius:4px;">R$ {val_bet:.0f}</span><br><span style="color:{'#4da6ff' if pick==home else '#ffcc00'};font-weight:bold;">{pick} {line:+.1f}</span><div style="font-size:0.7em;color:#888">Edge: {diff:.1f}{note_live}</div></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div style="text-align:right;"><span class="{css_badge}">R$ {val:.0f}</span><br><span style="color:{'#4da6ff' if pick==home else '#ffcc00'};font-weight:bold;">{pick} {line:+.1f}</span><div style="font-size:0.7em;color:#888">Edge: {diff:.1f}</div></div>""", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""<div style="text-align:right;color:#555;font-size:0.8em">Linha Justa{note_live}</div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div style="text-align:right;color:#555;font-size:0.8em">Justo</div>""", unsafe_allow_html=True)
 
             st.markdown("<hr style='margin: 8px 0; border-color: #2d313a;'>", unsafe_allow_html=True)
