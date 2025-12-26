@@ -48,6 +48,17 @@ st.markdown("""
 
     .insight-box { background: linear-gradient(90deg, #1a2a1a 0%, #1a1c24 100%); border-left: 3px solid #00ffaa; padding: 10px; border-radius: 0 6px 6px 0; margin-top: 10px; font-size: 0.85em; }
     .insight-box-warning { background: linear-gradient(90deg, #2a1a1a 0%, #1a1c24 100%); border-left: 3px solid #ff4466; }
+    .insight-box-blowout { background: linear-gradient(90deg, #2a2a1a 0%, #1a1c24 100%); border-left: 3px solid #ffa500; }
+    .insight-box-prop { background: linear-gradient(90deg, #1a1a2a 0%, #1a1c24 100%); border-left: 3px solid #9775fa; }
+
+    /* Termometro de Momentum */
+    .momentum-bar { height: 6px; background: #2d313a; border-radius: 3px; margin: 8px 0; overflow: hidden; position: relative; }
+    .momentum-fill-home { position: absolute; left: 50%; height: 100%; background: linear-gradient(90deg, transparent, #4da6ff); border-radius: 0 3px 3px 0; transition: width 0.3s ease; }
+    .momentum-fill-away { position: absolute; right: 50%; height: 100%; background: linear-gradient(270deg, transparent, #ffcc00); border-radius: 3px 0 0 3px; transition: width 0.3s ease; }
+    .momentum-center { position: absolute; left: 50%; top: -2px; width: 2px; height: 10px; background: #666; transform: translateX(-50%); }
+    .momentum-label { font-size: 0.7em; color: #888; display: flex; justify-content: space-between; }
+    .momentum-hot { color: #ff6b6b; font-weight: bold; }
+    .momentum-cold { color: #4dabf7; font-weight: bold; }
 
     div[data-baseweb="select"] > div { background-color: #262730; border-color: #444; color: white; }
     </style>
@@ -69,6 +80,84 @@ with st.sidebar:
     use_xscore = st.checkbox("xScore (Qualidade)", value=True, help="Detecta divergencia entre pontos reais e esperados")
     use_pace = st.checkbox("Ritmo Dinamico", value=True, help="Ajusta projecao de totais em tempo real")
     use_factors = st.checkbox("Four Factors", value=True, help="Analise tatica de Dean Oliver")
+
+# --- 0. MATCHUP TATICO PRE-LIVE (Four Factors Prevision) ---
+# Ranking de qualidade ofensiva/defensiva por fator (1-30, menor = melhor)
+TEAM_FOUR_FACTORS_SEASON = {
+    # Formato: "Team": {"off_efg": rank, "def_efg": rank, "off_tov": rank, "def_tov": rank, "off_orb": rank, "def_orb": rank}
+    # Dados aproximados 2024-25 (atualizar periodicamente)
+    "Celtics": {"off_efg": 1, "def_efg": 3, "off_tov": 5, "def_tov": 8, "off_orb": 20, "def_orb": 5, "pace_rank": 8},
+    "Thunder": {"off_efg": 3, "def_efg": 1, "off_tov": 2, "def_tov": 3, "off_orb": 8, "def_orb": 2, "pace_rank": 15},
+    "Cavaliers": {"off_efg": 2, "def_efg": 5, "off_tov": 8, "def_tov": 10, "off_orb": 12, "def_orb": 8, "pace_rank": 25},
+    "Knicks": {"off_efg": 10, "def_efg": 8, "off_tov": 3, "def_tov": 5, "off_orb": 1, "def_orb": 10, "pace_rank": 20},
+    "Rockets": {"off_efg": 18, "def_efg": 2, "off_tov": 10, "def_tov": 1, "off_orb": 3, "def_orb": 1, "pace_rank": 12},
+    "Warriors": {"off_efg": 5, "def_efg": 12, "off_tov": 6, "def_tov": 15, "off_orb": 25, "def_orb": 18, "pace_rank": 5},
+    "Lakers": {"off_efg": 12, "def_efg": 15, "off_tov": 12, "def_tov": 12, "off_orb": 10, "def_orb": 15, "pace_rank": 3},
+    "Nuggets": {"off_efg": 4, "def_efg": 18, "off_tov": 4, "def_tov": 20, "off_orb": 15, "def_orb": 22, "pace_rank": 18},
+    "Grizzlies": {"off_efg": 15, "def_efg": 10, "off_tov": 20, "def_tov": 6, "off_orb": 2, "def_orb": 3, "pace_rank": 1},
+    "Timberwolves": {"off_efg": 20, "def_efg": 4, "off_tov": 15, "def_tov": 4, "off_orb": 18, "def_orb": 6, "pace_rank": 28},
+    "Mavericks": {"off_efg": 6, "def_efg": 20, "off_tov": 7, "def_tov": 18, "off_orb": 22, "def_orb": 20, "pace_rank": 10},
+    "Suns": {"off_efg": 8, "def_efg": 22, "off_tov": 9, "def_tov": 22, "off_orb": 28, "def_orb": 25, "pace_rank": 6},
+    "Bucks": {"off_efg": 7, "def_efg": 14, "off_tov": 11, "def_tov": 14, "off_orb": 8, "def_orb": 12, "pace_rank": 14},
+    "Heat": {"off_efg": 14, "def_efg": 6, "off_tov": 1, "def_tov": 2, "off_orb": 5, "def_orb": 4, "pace_rank": 30},
+    "76ers": {"off_efg": 16, "def_efg": 16, "off_tov": 18, "def_tov": 16, "off_orb": 14, "def_orb": 14, "pace_rank": 22},
+    "Pacers": {"off_efg": 9, "def_efg": 28, "off_tov": 14, "def_tov": 25, "off_orb": 6, "def_orb": 28, "pace_rank": 2},
+    "Kings": {"off_efg": 11, "def_efg": 25, "off_tov": 16, "def_tov": 24, "off_orb": 16, "def_orb": 24, "pace_rank": 4},
+    "Spurs": {"off_efg": 22, "def_efg": 24, "off_tov": 22, "def_tov": 19, "off_orb": 4, "def_orb": 16, "pace_rank": 9},
+    "Magic": {"off_efg": 25, "def_efg": 7, "off_tov": 13, "def_tov": 7, "off_orb": 7, "def_orb": 7, "pace_rank": 29},
+    "Hawks": {"off_efg": 13, "def_efg": 26, "off_tov": 17, "def_tov": 26, "off_orb": 11, "def_orb": 26, "pace_rank": 7},
+    "Clippers": {"off_efg": 17, "def_efg": 11, "off_tov": 19, "def_tov": 11, "off_orb": 24, "def_orb": 11, "pace_rank": 23},
+    "Pistons": {"off_efg": 28, "def_efg": 27, "off_tov": 25, "def_tov": 27, "off_orb": 9, "def_orb": 27, "pace_rank": 11},
+    "Bulls": {"off_efg": 19, "def_efg": 21, "off_tov": 21, "def_tov": 21, "off_orb": 17, "def_orb": 21, "pace_rank": 16},
+    "Nets": {"off_efg": 24, "def_efg": 23, "off_tov": 24, "def_tov": 23, "off_orb": 21, "def_orb": 23, "pace_rank": 17},
+    "Raptors": {"off_efg": 26, "def_efg": 29, "off_tov": 26, "def_tov": 28, "off_orb": 13, "def_orb": 29, "pace_rank": 13},
+    "Hornets": {"off_efg": 27, "def_efg": 30, "off_tov": 28, "def_tov": 30, "off_orb": 19, "def_orb": 30, "pace_rank": 19},
+    "Wizards": {"off_efg": 30, "def_efg": 30, "off_tov": 30, "def_tov": 29, "off_orb": 23, "def_orb": 19, "pace_rank": 21},
+    "Pelicans": {"off_efg": 21, "def_efg": 19, "off_tov": 23, "def_tov": 17, "off_orb": 26, "def_orb": 17, "pace_rank": 24},
+    "Trail Blazers": {"off_efg": 23, "def_efg": 28, "off_tov": 27, "def_tov": 28, "off_orb": 27, "def_orb": 28, "pace_rank": 26},
+    "Jazz": {"off_efg": 29, "def_efg": 17, "off_tov": 29, "def_tov": 13, "off_orb": 30, "def_orb": 13, "pace_rank": 27}
+}
+
+def get_pregame_matchup_insights(home_team, away_team):
+    """Gera insights taticos pre-jogo baseados nos Four Factors da temporada"""
+    insights = []
+
+    h_name = home_team.split()[-1]
+    a_name = away_team.split()[-1]
+
+    h_factors = TEAM_FOUR_FACTORS_SEASON.get(h_name, None)
+    a_factors = TEAM_FOUR_FACTORS_SEASON.get(a_name, None)
+
+    if not h_factors or not a_factors:
+        return insights
+
+    # 1. Matchup eFG% (Ataque vs Defesa)
+    # Se o ataque e top10 e a defesa adversaria e bottom10 = vantagem clara
+    if h_factors['off_efg'] <= 10 and a_factors['def_efg'] >= 20:
+        insights.append(f"🎯 <b>{h_name}</b> (Ataque #%d eFG) vs Defesa fraca de {a_name} (#%d). Vantagem nos arremessos." % (h_factors['off_efg'], a_factors['def_efg']))
+    if a_factors['off_efg'] <= 10 and h_factors['def_efg'] >= 20:
+        insights.append(f"🎯 <b>{a_name}</b> (Ataque #%d eFG) vs Defesa fraca de {h_name} (#%d). Vantagem nos arremessos." % (a_factors['off_efg'], h_factors['def_efg']))
+
+    # 2. Turnover Battle
+    if h_factors['off_tov'] <= 5 and a_factors['def_tov'] >= 20:
+        insights.append(f"🏀 <b>{h_name}</b> cuida bem da bola (#%d TO) e {a_name} nao forca erros (#%d). Poucas viradas." % (h_factors['off_tov'], a_factors['def_tov']))
+    if a_factors['off_tov'] <= 5 and h_factors['def_tov'] >= 20:
+        insights.append(f"🏀 <b>{a_name}</b> cuida bem da bola (#%d TO) e {h_name} nao forca erros (#%d). Poucas viradas." % (a_factors['off_tov'], h_factors['def_tov']))
+
+    # 3. Rebote Ofensivo (segundas chances)
+    if h_factors['off_orb'] <= 5 and a_factors['def_orb'] >= 20:
+        insights.append(f"💪 <b>{h_name}</b> domina OREB (#%d) vs {a_name} que nao protege (#%d). Segundas chances!" % (h_factors['off_orb'], a_factors['def_orb']))
+    if a_factors['off_orb'] <= 5 and h_factors['def_orb'] >= 20:
+        insights.append(f"💪 <b>{a_name}</b> domina OREB (#%d) vs {h_name} que nao protege (#%d). Segundas chances!" % (a_factors['off_orb'], h_factors['def_orb']))
+
+    # 4. Ritmo esperado
+    avg_pace_rank = (h_factors['pace_rank'] + a_factors['pace_rank']) / 2
+    if avg_pace_rank <= 8:
+        insights.append(f"⚡ Jogo RAPIDO esperado. {h_name} (#%d pace) vs {a_name} (#%d pace). Considere OVER." % (h_factors['pace_rank'], a_factors['pace_rank']))
+    elif avg_pace_rank >= 25:
+        insights.append(f"🐢 Jogo LENTO esperado. {h_name} (#%d pace) vs {a_name} (#%d pace). Considere UNDER." % (h_factors['pace_rank'], a_factors['pace_rank']))
+
+    return insights
 
 # --- 1. IMPACTO DOS JOGADORES ---
 PLAYER_IMPACTS = {
@@ -165,27 +254,191 @@ def calculate_xscore(team_stats, current_score, minutes_played, is_home=True):
     xscore = np.clip(divergence / 3, -10, 10)
     return round(xscore, 1), round(expected_score, 1)
 
-# --- 5. RITMO DINAMICO BAYESIANO ---
+# --- 5. RITMO DINAMICO BAYESIANO (Calibrado 2024-25) ---
+# Liga media 2024-25: Pace ~100, Pontos ~115 por jogo
+LEAGUE_AVG_PACE_2024_25 = 100.0
+LEAGUE_AVG_PPG_2024_25 = 115.0
+
 def calculate_dynamic_pace(home_stats, away_stats, current_total, minutes_played, period):
+    """
+    Calcula pace dinamico usando Prior Bayesiano calibrado para 2024-25.
+    - Pre-jogo: usa media ponderada entre pace dos times e media da liga
+    - Ao vivo: atualiza com dados observados (peso aumenta com tempo)
+    """
+    # Prior calibrado: 70% media dos times + 30% media da liga (regressao a media)
+    raw_pace = (home_stats.get('pace', LEAGUE_AVG_PACE_2024_25) + away_stats.get('pace', LEAGUE_AVG_PACE_2024_25)) / 2
+    calibrated_prior_pace = (raw_pace * 0.7) + (LEAGUE_AVG_PACE_2024_25 * 0.3)
+
     if minutes_played <= 0:
-        expected_pace = (home_stats.get('pace', 98) + away_stats.get('pace', 98)) / 2
-        projected_total = (home_stats.get('ppg', 110) + away_stats.get('ppg', 110))
-        return projected_total, expected_pace, 0
+        # Pre-jogo: projecao baseada no prior calibrado
+        projected_total = (home_stats.get('ppg', LEAGUE_AVG_PPG_2024_25) + away_stats.get('ppg', LEAGUE_AVG_PPG_2024_25))
+        # Ajusta se o pace dos times diverge muito da media
+        pace_factor = calibrated_prior_pace / LEAGUE_AVG_PACE_2024_25
+        projected_total = projected_total * pace_factor
+        return round(projected_total, 1), round(calibrated_prior_pace, 1), 0
 
-    prior_pace = (home_stats.get('pace', 98) + away_stats.get('pace', 98)) / 2
+    # Ao vivo: Bayesian update
     observed_pace = (current_total / minutes_played) * 48
-    obs_weight = min(0.7, 0.2 + (minutes_played / 48) * 0.6)
-    updated_pace = (prior_pace * (1 - obs_weight)) + (observed_pace * obs_weight)
 
+    # Peso do observado aumenta com o tempo (mais confiavel conforme jogo avanca)
+    # Novo: peso mais agressivo para capturar tendencias mais rapido
+    obs_weight = min(0.8, 0.15 + (minutes_played / 48) * 0.75)
+
+    updated_pace = (calibrated_prior_pace * (1 - obs_weight)) + (observed_pace * obs_weight)
+
+    # Ajuste Q4: -5% pelo fator fadiga/tatica (times diminuem ritmo)
     if period >= 4:
         updated_pace *= 0.95
 
     remaining_minutes = 48 - minutes_played
     projected_remaining = (updated_pace / 48) * remaining_minutes
     projected_total = current_total + projected_remaining
-    pace_divergence = observed_pace - prior_pace
+
+    # Divergencia relativa ao prior calibrado (nao ao raw)
+    pace_divergence = observed_pace - calibrated_prior_pace
 
     return round(projected_total, 1), round(updated_pace, 1), round(pace_divergence, 1)
+
+# --- 5.1 DETECTOR DE BLOWOUT (Garbage Time) ---
+def detect_blowout(score_home, score_away, minutes_played, period):
+    """
+    Detecta se o jogo entrou em "Garbage Time" (diferenca grande + tempo avancado)
+    Retorna: (is_blowout, margin, warning_message)
+    """
+    margin = abs(score_home - score_away)
+    leading_team = "CASA" if score_home > score_away else "VISITANTE"
+
+    # Limites dinamicos baseados no tempo de jogo
+    # Quanto mais tarde no jogo, menor precisa ser a margem para ser blowout
+    if period >= 4 and margin >= 15:
+        return True, margin, f"🗑️ GARBAGE TIME: {leading_team} +{margin}. Estatisticas podem estar infladas."
+    elif period == 3 and margin >= 25:
+        return True, margin, f"🗑️ BLOWOUT EM ANDAMENTO: {leading_team} +{margin}. Titulares podem sentar em breve."
+    elif period >= 2 and margin >= 30:
+        return True, margin, f"⚠️ DOMINIO TOTAL: {leading_team} +{margin}. Reservas provaveis no 4Q."
+
+    # Alerta preventivo (nao e blowout ainda, mas esta a caminho)
+    if period >= 3 and margin >= 18:
+        return False, margin, f"⚠️ ATENCAO: Margem alta ({margin} pts). Risco de Garbage Time se continuar."
+
+    return False, margin, None
+
+# --- 5.2 CORRELACAO COM PROP BETS ---
+def get_prop_bet_suggestions(pace_div, projected_total, market_total, home_team, away_team, is_live, period):
+    """
+    Sugere apostas em jogadores baseado no ritmo do jogo
+    Se o jogo esta muito rapido = mais posses = mais stats para estrelas
+    """
+    suggestions = []
+
+    # So sugere se tiver sinal claro
+    diff_total = projected_total - market_total
+
+    # Jogo muito mais rapido que o esperado = Over em estrelas
+    if pace_div > 5 or diff_total > 5:
+        suggestions.append({
+            "type": "OVER_PTS",
+            "msg": f"⭐ Jogo ACELERADO (+{pace_div:.0f} pace). Considere OVER Pontos das estrelas.",
+            "confidence": "Alta" if pace_div > 8 else "Media"
+        })
+        suggestions.append({
+            "type": "OVER_REB",
+            "msg": f"🏀 Mais arremessos = Mais rebotes. OVER Rebotes dos pivôs.",
+            "confidence": "Media"
+        })
+
+    # Jogo muito mais lento que o esperado = Under em estrelas
+    elif pace_div < -5 or diff_total < -5:
+        suggestions.append({
+            "type": "UNDER_PTS",
+            "msg": f"🐢 Jogo TRAVADO ({pace_div:.0f} pace). Considere UNDER Pontos das estrelas.",
+            "confidence": "Alta" if pace_div < -8 else "Media"
+        })
+
+    # Se esta no 4Q e jogo esta aberto (margem pequena) = mais pressao = mais lances livres
+    if is_live and period == 4:
+        suggestions.append({
+            "type": "CLUTCH",
+            "msg": f"🎯 4Q CLUTCH: Mais faltas taticas. OVER Lances Livres possivel.",
+            "confidence": "Media"
+        })
+
+    return suggestions
+
+# --- 5.3 TERMOMETRO DE MOMENTUM (Run Detector) ---
+def calculate_momentum(home_stats, away_stats, score_home, score_away, minutes_played):
+    """
+    Calcula o momentum baseado na eficiencia recente (aproximacao via Four Factors ao vivo)
+    Retorna: momentum_home (-100 a +100), onde positivo = home dominando
+    """
+    if not home_stats or not away_stats:
+        return 0, "Aguardando dados..."
+
+    try:
+        # Eficiencia atual (eFG% e Turnovers)
+        h_factors = calc_four_factors(home_stats)
+        a_factors = calc_four_factors(away_stats)
+
+        # Score de momentum baseado em multiplos fatores
+        # 1. Quem esta arremessando melhor?
+        efg_diff = h_factors['efg'] - a_factors['efg']
+
+        # 2. Quem esta cuidando melhor da bola? (menor TO% = melhor)
+        tov_diff = a_factors['tov'] - h_factors['tov']  # Invertido pq menor eh melhor
+
+        # 3. Quem esta pegando mais rebotes ofensivos?
+        orb_diff = h_factors['orb'] - a_factors['orb']
+
+        # Pondera os fatores
+        momentum = (efg_diff * 2) + (tov_diff * 1.5) + (orb_diff * 0.5)
+
+        # Normaliza para -100 a +100
+        momentum = np.clip(momentum * 3, -100, 100)
+
+        # Gera mensagem
+        if momentum > 30:
+            msg = "🔥 CASA em RUN! Jogando muito melhor."
+        elif momentum > 15:
+            msg = "Casa com momentum positivo."
+        elif momentum < -30:
+            msg = "🔥 VISITANTE em RUN! Dominando o jogo."
+        elif momentum < -15:
+            msg = "Visitante com momentum positivo."
+        else:
+            msg = "Jogo equilibrado."
+
+        return round(momentum, 0), msg
+
+    except Exception as e:
+        return 0, "Calculando..."
+
+def render_momentum_bar(momentum, home_name, away_name):
+    """Renderiza a barra visual de momentum"""
+    # Converte momentum (-100 a +100) para porcentagem de cada lado
+    if momentum > 0:
+        home_width = min(50, momentum / 2)
+        away_width = 0
+    else:
+        home_width = 0
+        away_width = min(50, abs(momentum) / 2)
+
+    home_class = "momentum-hot" if momentum > 30 else ""
+    away_class = "momentum-hot" if momentum < -30 else ""
+
+    return f"""
+    <div style="margin: 10px 0;">
+        <div class="momentum-label">
+            <span class="{away_class}">{away_name.split()[-1]}</span>
+            <span style="color:#666">MOMENTUM</span>
+            <span class="{home_class}">{home_name.split()[-1]}</span>
+        </div>
+        <div class="momentum-bar">
+            <div class="momentum-fill-away" style="width: {away_width}%;"></div>
+            <div class="momentum-center"></div>
+            <div class="momentum-fill-home" style="width: {home_width}%;"></div>
+        </div>
+    </div>
+    """
 
 # --- 6. FUNCOES AUXILIARES ---
 @st.cache_data(ttl=3600)
@@ -319,8 +572,8 @@ def get_odds(api_key):
 
 # --- APP PRINCIPAL ---
 c1, c2 = st.columns([5, 1])
-c1.title("NBA Terminal Pro v8.0")
-c1.caption("Four Factors + xScore + Ritmo Dinamico")
+c1.title("NBA Terminal Pro v9.0")
+c1.caption("Matchup Tatico + Momentum + Blowout Detector + Prop Bets")
 if c2.button("SCAN LIVE", type="primary"):
     st.cache_data.clear()
     st.rerun()
@@ -556,7 +809,45 @@ else:
                     else:
                         st.markdown("<div style='text-align:right; padding:10px; color:#555;'>Linha Justa</div>", unsafe_allow_html=True)
 
-                # Insights baseados nos Four Factors
+                # === NOVOS INSIGHTS v9.0 ===
+
+                # 1. BLOWOUT DETECTOR
+                if is_live:
+                    is_blowout, margin, blowout_msg = detect_blowout(
+                        live_info['score_home'], live_info['score_away'],
+                        live_info['minutes_played'], live_info['period']
+                    )
+                    if blowout_msg:
+                        st.markdown(f"""<div class="insight-box insight-box-blowout">
+                            {blowout_msg}
+                        </div>""", unsafe_allow_html=True)
+
+                # 2. MOMENTUM BAR (so ao vivo com stats)
+                if is_live and live_info.get('home_stats') and live_info.get('away_stats'):
+                    momentum, momentum_msg = calculate_momentum(
+                        live_info['home_stats'], live_info['away_stats'],
+                        live_info['score_home'], live_info['score_away'],
+                        live_info['minutes_played']
+                    )
+                    if abs(momentum) > 10:  # So mostra se houver algum momentum
+                        momentum_html = render_momentum_bar(momentum, home, away)
+                        st.markdown(momentum_html, unsafe_allow_html=True)
+                        if abs(momentum) > 25:
+                            st.markdown(f"""<div style="font-size:0.8em; color:#888; text-align:center; margin-top:-5px;">{momentum_msg}</div>""", unsafe_allow_html=True)
+
+                # 3. PROP BETS SUGGESTIONS (ao vivo)
+                if is_live and use_pace:
+                    prop_suggestions = get_prop_bet_suggestions(
+                        pace_div, projected_total, market_total,
+                        home, away, is_live, live_info['period']
+                    )
+                    if prop_suggestions:
+                        props_html = "<br>".join([f"{s['msg']} <span style='color:#666;'>({s['confidence']})</span>" for s in prop_suggestions])
+                        st.markdown(f"""<div class="insight-box insight-box-prop">
+                            <b>💡 PROP BETS:</b><br>{props_html}
+                        </div>""", unsafe_allow_html=True)
+
+                # 4. Four Factors Insights (original, melhorado)
                 if is_live and h_factors and a_factors and use_factors:
                     insights = []
 
@@ -578,7 +869,13 @@ else:
                             {'<br>'.join(insights)}
                         </div>""", unsafe_allow_html=True)
 
+                # 5. PRE-GAME MATCHUP INSIGHTS (Four Factors Prevision)
                 if not is_live:
+                    pregame_insights = get_pregame_matchup_insights(home, away)
+                    if pregame_insights:
+                        st.markdown(f"""<div class="insight-box">
+                            <b>📊 MATCHUP TATICO:</b><br>{'<br>'.join(pregame_insights)}
+                        </div>""", unsafe_allow_html=True)
                     st.markdown("</div></div>", unsafe_allow_html=True)
 
                 st.markdown("<hr style='margin: 10px 0; border-color: #2d313a;'>", unsafe_allow_html=True)
