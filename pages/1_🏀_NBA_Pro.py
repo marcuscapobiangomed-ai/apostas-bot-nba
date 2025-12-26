@@ -39,42 +39,69 @@ except ValueError as e:
 # --- 2. CSS VISUAL (NEON DARK PRO) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; font-family: 'Inter', 'Roboto', sans-serif; }
+    /* Reset & Fonts */
+    .stApp { background-color: #0b0c0e; font-family: 'Inter', system-ui, sans-serif; }
+    
+    /* Cores de Texto - Alto Contraste */
+    h1, h2, h3, h4, b, strong { color: #ffffff !important; }
+    p, span, div { color: #e0e0e0; }
+    small { color: #b0b0b0 !important; }
     
     /* Animação Live */
     @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); } }
+    .live-dot { display: inline-block; width: 10px; height: 10px; background-color: #ff2b2b; border-radius: 50%; margin-right: 8px; animation: blink 1.2s infinite; box-shadow: 0 0 10px #ff2b2b; }
     
-    .live-dot { display: inline-block; width: 10px; height: 10px; background-color: #ff0000; border-radius: 50%; margin-right: 8px; animation: blink 1.5s infinite; box-shadow: 0 0 8px #ff0000; }
+    /* Cartões de Jogo */
+    .game-card { 
+        background-color: #16181c; 
+        border: 1px solid #333;
+        border-radius: 8px; 
+        padding: 16px; 
+        margin-bottom: 12px; 
+        border-left: 4px solid #555; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+    }
+    .game-card:hover { border-color: #666; background-color: #1c1f24; }
     
-    /* Cards */
-    .game-card { background: linear-gradient(145deg, #1c1e26, #22252e); border-radius: 12px; padding: 18px; margin-bottom: 14px; border-left: 4px solid #444; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s; }
-    .game-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
-    .card-live { border-left: 4px solid #ff4b4b; background: linear-gradient(145deg, #251a1a, #2d1f1f); }
-    .card-value { border-left: 4px solid #00ff88; }
+    .card-live { 
+        background-color: #1a1010; 
+        border: 1px solid #4a2020;
+        border-left: 4px solid #ff4b4b; 
+    }
     
-    /* Badges */
-    .stake-badge { background: linear-gradient(135deg, #00ff88, #00cc6a); color: #000; font-weight: 700; padding: 4px 12px; border-radius: 6px; font-size: 0.85em; animation: pulse 2s infinite; }
-    .edge-badge { background-color: #4da6ff; color: #000; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; }
+    .card-value { 
+        background-color: #0f1612; 
+        border: 1px solid #1a4030;
+        border-left: 4px solid #00ff88; 
+    }
     
-    /* Props */
-    .prop-card { background-color: #25262b; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; transition: border-color 0.2s; }
-    .prop-card:hover { border-color: #00ffaa; }
-    .prop-good { border-left: 3px solid #00ffaa; }
+    /* Badges e Elementos UI */
+    .stake-badge { 
+        background-color: #00ff88; 
+        color: #000000 !important; 
+        font-weight: 800; 
+        padding: 4px 12px; 
+        border-radius: 4px; 
+        font-size: 0.9em; 
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+    }
     
-    /* Métricas */
-    .metric-box { background: linear-gradient(145deg, #1a1c24, #22252e); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #333; }
-    .metric-label { font-size: 0.7em; color: #888; text-transform: uppercase; letter-spacing: 1.5px; }
-    .metric-val { font-size: 1.3em; font-weight: 700; color: #fff; }
-    .metric-positive { color: #00ff88; }
-    .metric-negative { color: #ff4b4b; }
+    .metric-box { 
+        background-color: #1c1e24; 
+        padding: 15px; 
+        border-radius: 8px; 
+        border: 1px solid #333; 
+        text-align: center; 
+    }
+    .metric-label { font-size: 0.75em; color: #a0a0a0; text-transform: uppercase; font-weight: 600; }
+    .metric-val { font-size: 1.4em; font-weight: 700; color: #ffffff; }
     
     /* News */
-    .news-card { background-color: #262730; padding: 12px; border-radius: 6px; margin-bottom: 10px; border-left: 3px solid #4da6ff; font-size: 0.9em; }
-    .news-alert { border-left: 3px solid #ff4b4b; background-color: #2d1b1b; }
+    .news-card { background-color: #1e2026; padding: 12px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid #4da6ff; color: #ddd; }
+    .news-alert { background-color: #2b1515; border-left: 3px solid #ff4b4b; color: #fff; }
     
-    /* Inputs */
-    div[data-baseweb="select"] > div { background-color: #262730; border-color: #444; }
+    /* Ajustes Streamlit */
+    div[data-testid="stExpander"] { background-color: #16181c; border-radius: 6px; }
     </style>
 """, unsafe_allow_html=True)
 
