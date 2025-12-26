@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import requests
+import feedparser
+from datetime import datetime
 from nba_api.stats.endpoints import leaguestandings
 
 # --- CONFIGURACAO INICIAL ---
@@ -13,18 +15,34 @@ API_KEY = "e6a32983f406a1fbf89fda109149ac15"
 st.markdown("""
 <style>
 .stApp { background-color: #0e1117; font-family: 'Roboto', sans-serif; }
+
+/* Terminal de Jogos */
 .trade-strip {
     background-color: #1c1e26; border-radius: 8px; padding: 15px; margin-bottom: 12px;
     border-left: 4px solid #444; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 .strip-value { border-left: 4px solid #00ff00; background-color: #1f291f; }
+
+/* Estilos de Texto */
 .time-text { color: #888; font-size: 0.8em; font-weight: bold; display: block; margin-bottom: 4px;}
 .team-name { font-size: 1.1em; font-weight: 600; color: #eee; }
 .rating-badge { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; color: #aaa; margin-left: 6px; vertical-align: middle;}
 .odds-label { font-size: 0.7em; color: #777; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px;}
 .odds-num { font-size: 1.4em; font-weight: bold; }
-.odds-real { color: #fff; }
+
+/* Noticias */
+.news-card {
+    background-color: #262730; padding: 10px; border-radius: 5px; margin-bottom: 8px;
+    border-left: 3px solid #4da6ff; font-size: 0.9em;
+}
+.news-alert { border-left: 3px solid #ff4b4b; background-color: #2d1b1b; }
+.news-time { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+.news-title { color: #e0e0e0; font-weight: 500; }
+
+/* Inputs */
 div[data-baseweb="select"] > div { background-color: #262730; border-color: #444; color: white; }
+
+/* Badges */
 .ev-badge {
     background-color: #00cc00; color: black; font-weight: bold;
     padding: 4px 10px; border-radius: 4px; font-size: 0.85em;
@@ -33,7 +51,30 @@ div[data-baseweb="select"] > div { background-color: #262730; border-color: #444
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. CEREBRO ---
+# --- 1. MOTOR DE NOTICIAS ---
+@st.cache_data(ttl=300)  # Atualiza a cada 5 minutos
+def get_nba_news():
+    feed_url = "https://www.espn.com/espn/rss/nba/news"
+    feed = feedparser.parse(feed_url)
+
+    noticias = []
+    keywords_alerta = ["injury", "out", "surgery", "suspended", "trade", "doubtful", "questionable", "miss"]
+
+    for entry in feed.entries[:6]:
+        titulo = entry.title
+        link = entry.link
+        try:
+            dt = datetime(*entry.published_parsed[:6])
+            hora = dt.strftime("%H:%M")
+        except:
+            hora = "Hoje"
+
+        alerta = any(word in titulo.lower() for word in keywords_alerta)
+        noticias.append({"titulo": titulo, "hora": hora, "link": link, "alerta": alerta})
+
+    return noticias
+
+# --- 2. CEREBRO (RATINGS) ---
 @st.cache_data(ttl=86400)
 def get_nba_ratings():
     try:
@@ -56,7 +97,7 @@ def get_live_odds(api_key):
     except:
         return []
 
-# --- 2. DATABASE DE LESOES ---
+# --- 3. DATABASE DE LESOES ---
 DB_LESAO_FULL = {
     "Nikola Jokic": [8.5, "Nuggets"], "Luka Doncic": [7.0, "Mavericks"], "Giannis Antetokounmpo": [6.5, "Bucks"],
     "Shai Gilgeous-Alexander": [6.5, "Thunder"], "Joel Embiid": [6.0, "76ers"], "Jayson Tatum": [5.0, "Celtics"],
@@ -72,11 +113,34 @@ DB_LESAO_FULL = {
 
 # --- APP PRINCIPAL ---
 c_title, c_btn = st.columns([6, 1])
-c_title.title("NBA Terminal Pro v3.1")
+c_title.title("NBA Terminal Pro v3.4")
 if c_btn.button("Scan", type="primary"):
     st.cache_data.clear()
     st.rerun()
 
+# --- SECAO DE NOTICIAS ---
+with st.expander("BREAKING NEWS & LESOES (Atualizado em tempo real)", expanded=True):
+    noticias = get_nba_news()
+    if noticias:
+        cols = st.columns(3)
+        for i, news in enumerate(noticias):
+            col_idx = i % 3
+            css_class = "news-alert" if news['alerta'] else "news-card"
+            icon = "🚨" if news['alerta'] else "ℹ️"
+
+            with cols[col_idx]:
+                st.markdown(f"""
+<div class="{css_class} news-card">
+<div class="news-time">{icon} {news['hora']}</div>
+<div class="news-title"><a href="{news['link']}" target="_blank" style="text-decoration:none; color:inherit;">{news['titulo']}</a></div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.info("Sem noticias recentes no feed.")
+
+st.divider()
+
+# --- LOGICA DO TERMINAL ---
 RATINGS = get_nba_ratings()
 odds_data = get_live_odds(API_KEY)
 
@@ -124,7 +188,7 @@ else:
                     break
                 except: pass
 
-        # TRAVA DE SEGURANCA: Se a odd for 0.0 ou N/A, pular o jogo
+        # TRAVA DE SEGURANCA
         if market_line == 0.0:
             continue
 
@@ -207,18 +271,17 @@ else:
             # --- COLUNA 4: DECISAO COM GESTAO DE BANCA ---
             with c4:
                 if has_value:
-                    # Definindo o tamanho da aposta (Kelly Simplificado)
                     if diff < 3.0:
                         stake = "0.75u"
-                        stake_color = "#ffff00"  # Amarelo (Normal)
+                        stake_color = "#ffff00"
                         label_txt = "APOSTAR"
                     elif diff < 5.0:
                         stake = "1.5u"
-                        stake_color = "#00ff00"  # Verde (Forte)
+                        stake_color = "#00ff00"
                         label_txt = "VALOR"
                     else:
                         stake = "2.0u"
-                        stake_color = "#ff00ff"  # Rosa/Magenta (Extremo)
+                        stake_color = "#ff00ff"
                         label_txt = "SUPER EV"
 
                     st.markdown(f"""
@@ -243,4 +306,4 @@ Sem Valor<br>Linha Justa
             st.markdown("<hr style='margin: 8px 0; border-color: #2d313a;'>", unsafe_allow_html=True)
 
     if jogos_validos == 0:
-        st.warning("Mercado aberto, mas sem linhas de handicap disponiveis no momento. Tente novamente mais tarde.")
+        st.warning("Mercado aberto, mas sem linhas de handicap disponiveis no momento (Odds zeradas).")
