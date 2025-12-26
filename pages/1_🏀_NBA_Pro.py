@@ -13,39 +13,18 @@ API_KEY = "e6a32983f406a1fbf89fda109149ac15"
 st.markdown("""
 <style>
 .stApp { background-color: #0e1117; font-family: 'Roboto', sans-serif; }
-
-/* Container Principal (A Tira) */
 .trade-strip {
-    background-color: #1c1e26;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 12px;
-    border-left: 4px solid #444;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    background-color: #1c1e26; border-radius: 8px; padding: 15px; margin-bottom: 12px;
+    border-left: 4px solid #444; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
-
-/* Quando tem Valor */
-.strip-value {
-    border-left: 4px solid #00ff00;
-    background-color: #1f291f;
-}
-
+.strip-value { border-left: 4px solid #00ff00; background-color: #1f291f; }
 .time-text { color: #888; font-size: 0.8em; font-weight: bold; display: block; margin-bottom: 4px;}
 .team-name { font-size: 1.1em; font-weight: 600; color: #eee; }
 .rating-badge { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; color: #aaa; margin-left: 6px; vertical-align: middle;}
-
 .odds-label { font-size: 0.7em; color: #777; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px;}
 .odds-num { font-size: 1.4em; font-weight: bold; }
-.odds-model { color: #4da6ff; }
 .odds-real { color: #fff; }
-
-/* Ajuste para o Dropdown ocupar largura total e ficar bonito */
-div[data-baseweb="select"] > div {
-    background-color: #262730;
-    border-color: #444;
-    color: white;
-}
-
+div[data-baseweb="select"] > div { background-color: #262730; border-color: #444; color: white; }
 .ev-badge {
     background-color: #00cc00; color: black; font-weight: bold;
     padding: 4px 10px; border-radius: 4px; font-size: 0.85em;
@@ -54,7 +33,7 @@ div[data-baseweb="select"] > div {
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. CEREBRO: POWER RATINGS ---
+# --- 1. CEREBRO ---
 @st.cache_data(ttl=86400)
 def get_nba_ratings():
     try:
@@ -67,7 +46,7 @@ def get_nba_ratings():
             ratings[team] = round(net, 1)
         return ratings
     except:
-        return {"Celtics": 10.5, "Thunder": 9.0, "Nuggets": 7.0, "Lakers": 1.5, "Knicks": 4.0, "Cavaliers": 10.0}
+        return {"Celtics": 10.5, "Thunder": 9.0, "Nuggets": 7.0, "Lakers": 1.5}
 
 def get_live_odds(api_key):
     url = f'https://api.the-odds-api.com/v4/sports/basketball_nba/odds'
@@ -77,42 +56,23 @@ def get_live_odds(api_key):
     except:
         return []
 
-# --- 2. DATABASE DE LESOES (AGORA COM TIMES) ---
-# Estrutura: "Nome": [Impacto, "Time"]
+# --- 2. DATABASE DE LESOES ---
 DB_LESAO_FULL = {
-    "Nikola Jokic": [8.5, "Nuggets"],
-    "Luka Doncic": [7.0, "Mavericks"],
-    "Giannis Antetokounmpo": [6.5, "Bucks"],
-    "Shai Gilgeous-Alexander": [6.5, "Thunder"],
-    "Joel Embiid": [6.0, "76ers"],
-    "Jayson Tatum": [5.0, "Celtics"],
-    "Jaylen Brown": [3.5, "Celtics"],
-    "Stephen Curry": [5.0, "Warriors"],
-    "LeBron James": [4.5, "Lakers"],
-    "Anthony Davis": [4.5, "Lakers"],
-    "Kevin Durant": [4.5, "Suns"],
-    "Devin Booker": [3.5, "Suns"],
-    "Ja Morant": [4.0, "Grizzlies"],
-    "Tyrese Haliburton": [3.5, "Pacers"],
-    "Donovan Mitchell": [4.0, "Cavaliers"],
-    "Darius Garland": [3.0, "Cavaliers"],
-    "Jalen Brunson": [3.5, "Knicks"],
-    "Karl-Anthony Towns": [3.0, "Knicks"],
-    "Anthony Edwards": [4.0, "Timberwolves"],
-    "Victor Wembanyama": [4.5, "Spurs"],
-    "Trae Young": [3.0, "Hawks"],
-    "Jimmy Butler": [3.5, "Heat"],
-    "Damian Lillard": [3.0, "Bucks"],
-    "Zion Williamson": [3.0, "Pelicans"],
-    "Paolo Banchero": [2.5, "Magic"],
-    "LaMelo Ball": [2.5, "Hornets"],
-    "Cade Cunningham": [2.5, "Pistons"],
+    "Nikola Jokic": [8.5, "Nuggets"], "Luka Doncic": [7.0, "Mavericks"], "Giannis Antetokounmpo": [6.5, "Bucks"],
+    "Shai Gilgeous-Alexander": [6.5, "Thunder"], "Joel Embiid": [6.0, "76ers"], "Jayson Tatum": [5.0, "Celtics"],
+    "Jaylen Brown": [3.5, "Celtics"], "Stephen Curry": [5.0, "Warriors"], "LeBron James": [4.5, "Lakers"],
+    "Anthony Davis": [4.5, "Lakers"], "Kevin Durant": [4.5, "Suns"], "Devin Booker": [3.5, "Suns"],
+    "Ja Morant": [4.0, "Grizzlies"], "Tyrese Haliburton": [3.5, "Pacers"], "Donovan Mitchell": [4.0, "Cavaliers"],
+    "Darius Garland": [3.0, "Cavaliers"], "Jalen Brunson": [3.5, "Knicks"], "Karl-Anthony Towns": [3.0, "Knicks"],
+    "Anthony Edwards": [4.0, "Timberwolves"], "Victor Wembanyama": [4.5, "Spurs"], "Trae Young": [3.0, "Hawks"],
+    "Jimmy Butler": [3.5, "Heat"], "Damian Lillard": [3.0, "Bucks"], "Zion Williamson": [3.0, "Pelicans"],
+    "Paolo Banchero": [2.5, "Magic"], "LaMelo Ball": [2.5, "Hornets"], "Cade Cunningham": [2.5, "Pistons"],
     "Alperen Sengun": [2.5, "Rockets"]
 }
 
 # --- APP PRINCIPAL ---
 c_title, c_btn = st.columns([6, 1])
-c_title.title("NBA Terminal Pro v3.0")
+c_title.title("NBA Terminal Pro v3.1")
 if c_btn.button("Scan", type="primary"):
     st.cache_data.clear()
     st.rerun()
@@ -123,7 +83,7 @@ odds_data = get_live_odds(API_KEY)
 if not odds_data or isinstance(odds_data, dict):
     st.info("Mercado fechado ou sem creditos na API.")
 else:
-    # Cabecalho da Tabela
+    # Cabecalho
     st.markdown("""
 <div style="display: flex; color: #666; font-size: 0.8em; padding: 0 15px; margin-bottom: 5px; font-weight: bold;">
 <div style="flex: 3;">JOGO & RATING</div>
@@ -133,21 +93,23 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
+    jogos_validos = 0
+
     for game in odds_data:
         home_full = game['home_team']
         away_full = game['away_team']
         time_start = pd.to_datetime(game['commence_time']).strftime('%H:%M')
 
-        # 1. Match de Ratings
+        # Match Ratings
         r_home, r_away = 0.0, 0.0
         for n, r in RATINGS.items():
             if n in home_full: r_home = r
             if n in away_full: r_away = r
 
-        # 2. Linha Justa Base (Sem Lesao)
+        # Linha Base
         fair_line_base = -((r_home + 2.5) - r_away)
 
-        # 3. Linha de Mercado
+        # Busca Odds (Com validacao de 0.0)
         market_line = 0.0
         bookie_name = "N/A"
         sites = game.get('bookmakers', [])
@@ -161,28 +123,25 @@ else:
                     bookie_name = site['title']
                     break
                 except: pass
-        if market_line == 0.0 and sites:
-            try:
-                p = sites[0]['markets'][0]['outcomes'][0]['point']
-                if sites[0]['markets'][0]['outcomes'][0]['name'] != home_full: p = -p
-                market_line = p
-                bookie_name = sites[0]['title']
-            except: pass
 
-        # 4. Logica de Filtro de Jogadores (Automatico por Time)
+        # TRAVA DE SEGURANCA: Se a odd for 0.0 ou N/A, pular o jogo
+        if market_line == 0.0:
+            continue
+
+        jogos_validos += 1
+
+        # Filtro de Jogadores
         jogadores_no_jogo = []
         for jogador, dados in DB_LESAO_FULL.items():
             time_jogador = dados[1]
             if time_jogador in home_full or time_jogador in away_full:
                 jogadores_no_jogo.append(jogador)
-
         jogadores_no_jogo.sort()
 
-        # --- RENDERIZACAO VISUAL ---
+        # Renderizacao
         with st.container():
             c1, c2, c3, c4 = st.columns([3, 2.2, 2.2, 1.6], gap="small", vertical_alignment="center")
 
-            # C1: Times
             with c1:
                 st.markdown(f"""
 <div style="line-height: 1.5;">
@@ -199,38 +158,24 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
-            # C3: Input de Lesao (Filtrado automaticamente)
             with c3:
                 player_out = st.selectbox(
-                    "Quem esta fora?",
-                    ["-"] + jogadores_no_jogo,
-                    key=f"les_{home_full}",
-                    label_visibility="collapsed"
+                    "Quem esta fora?", ["-"] + jogadores_no_jogo, key=f"les_{home_full}", label_visibility="collapsed"
                 )
 
-            # Logica de Ajuste Automatico
+            # Ajuste Lesao
             adj_fair = fair_line_base
-            impacto_aplicado = 0.0
-
             if player_out != "-":
                 dados_jogador = DB_LESAO_FULL[player_out]
                 impacto = dados_jogador[0]
                 time_jogador = dados_jogador[1]
+                if time_jogador in home_full: adj_fair += impacto
+                elif time_jogador in away_full: adj_fair -= impacto
 
-                impacto_aplicado = impacto
-
-                # Se jogador for do time da Casa -> Casa PIORA -> Spread Sobe
-                if time_jogador in home_full:
-                    adj_fair += impacto
-                # Se jogador for do Rival -> Casa MELHORA -> Spread Desce
-                elif time_jogador in away_full:
-                    adj_fair -= impacto
-
-            # C2: Numeros
+            # Decisao
             diff = abs(adj_fair - market_line)
             has_value = diff >= 1.5
 
-            # Determinar aposta
             if adj_fair < market_line:
                 pick = home_full
                 line_pick = market_line
@@ -256,7 +201,6 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
-            # C4: Decisao
             with c4:
                 if has_value:
                     st.markdown(f"""
@@ -277,3 +221,6 @@ Sem Valor<br>Linha Justa
 
             # Divisoria
             st.markdown("<hr style='margin: 8px 0; border-color: #2d313a;'>", unsafe_allow_html=True)
+
+    if jogos_validos == 0:
+        st.warning("Mercado aberto, mas sem linhas de handicap disponiveis no momento. Tente novamente mais tarde.")
